@@ -1,6 +1,7 @@
 export interface Customer {
   id: string
   name: string
+  nameKana: string | null
   visitCount: number
   lastVisitDate: string | null
   notes: string | null
@@ -26,11 +27,12 @@ export interface CustomerProfile {
 }
 
 export interface VisitRecord {
-  id: string
+  treatmentId: string
   customerId: string
+  visitNumber: number
   visitDate: string
+  previousTreatmentId: string | null
   visitType: 'first_visit' | 'repeat_visit'
-  previousRecordId: string | null
   visitPolicy: 'same_as_previous' | 'partial_change' | 'major_change'
   changedFields: string[]
   designPlan: DesignPlan | null
@@ -38,6 +40,10 @@ export interface VisitRecord {
   treatmentRecord: TreatmentRecord | null
   reaction: Reaction | null
   handover: Handover | null
+  originalObservationMemo: string | null
+  aiGeneratedObservationSummary: string | null
+  aiGeneratedHandover: string | null
+  staffEditedHandover: string | null
 }
 
 export interface DesignPlan {

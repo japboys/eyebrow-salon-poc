@@ -39,3 +39,5 @@ next-env.d.ts
 *.db
 !Db/prisma/dev.db
 *.db-journal
+
+.vercel

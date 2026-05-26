@@ -10,14 +10,54 @@ function parseJsonField<T>(value: string | null | undefined, fallback: T): T {
   }
 }
 
+function formatVisitRecord(v: {
+  treatmentId: string
+  customerId: string
+  visitNumber: number
+  visitDate: Date
+  previousTreatmentId: string | null
+  visitType: string
+  visitPolicy: string
+  changedFields: string | null
+  designPlan: string | null
+  todayObservation: string | null
+  treatmentRecord: string | null
+  reaction: string | null
+  handover: string | null
+  originalObservationMemo: string | null
+  aiGeneratedObservationSummary: string | null
+  aiGeneratedHandover: string | null
+  staffEditedHandover: string | null
+}) {
+  return {
+    treatmentId: v.treatmentId,
+    customerId: v.customerId,
+    visitNumber: v.visitNumber,
+    visitDate: v.visitDate.toISOString(),
+    previousTreatmentId: v.previousTreatmentId,
+    visitType: v.visitType,
+    visitPolicy: v.visitPolicy,
+    changedFields: parseJsonField<string[]>(v.changedFields, []),
+    designPlan: parseJsonField(v.designPlan, null),
+    todayObservation: parseJsonField(v.todayObservation, null),
+    treatmentRecord: parseJsonField(v.treatmentRecord, null),
+    reaction: parseJsonField(v.reaction, null),
+    handover: parseJsonField(v.handover, null),
+    originalObservationMemo: v.originalObservationMemo,
+    aiGeneratedObservationSummary: v.aiGeneratedObservationSummary,
+    aiGeneratedHandover: v.aiGeneratedHandover,
+    staffEditedHandover: v.staffEditedHandover,
+  }
+}
+
 export async function GET() {
   try {
     const customers = await prisma.customer.findMany({
       include: {
         profile: true,
         visitRecords: {
-          orderBy: { visitDate: 'desc' },
-          take: 1,
+          orderBy: { visitNumber: 'desc' },
+          take: 2,
         },
       },
       orderBy: { name: 'asc' },
@@ -26,6 +66,7 @@ export async function GET() {
     const formatted = customers.map((c) => ({
       id: c.id,
       name: c.name,
+      nameKana: c.nameKana,
       visitCount: c.visitCount,
       lastVisitDate: c.lastVisitDate?.toISOString() ?? null,
       notes: c.notes,
@@ -35,20 +76,7 @@ export async function GET() {
             ngPoints: parseJsonField(c.profile.ngPoints, null),
           }
         : null,
-      visitRecords: c.visitRecords.map((v) => ({
-        id: v.id,
-        customerId: v.customerId,
-        visitDate: v.visitDate.toISOString(),
-        visitType: v.visitType,
-        previousRecordId: v.previousRecordId,
-        visitPolicy: v.visitPolicy,
-        changedFields: parseJsonField<string[]>(v.changedFields, []),
-        designPlan: parseJsonField(v.designPlan, null),
-        todayObservation: parseJsonField(v.todayObservation, null),
-        treatmentRecord: parseJsonField(v.treatmentRecord, null),
-        reaction: parseJsonField(v.reaction, null),
-        handover: parseJsonField(v.handover, null),
-      })),
+      visitRecords: c.visitRecords.map(formatVisitRecord),
     }))
 
     return NextResponse.json(formatted)
@@ -61,11 +89,16 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, notes } = body
+    const { name, nameKana, notes } = body
+
+    const count = await prisma.customer.count()
+    const newId = `CUST${String(count + 1).padStart(3, '0')}`
 
     const customer = await prisma.customer.create({
       data: {
+        id: newId,
         name,
+        nameKana: nameKana ?? null,
         notes,
         visitCount: 0,
       },

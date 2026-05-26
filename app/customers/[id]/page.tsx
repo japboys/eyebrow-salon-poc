@@ -119,7 +119,6 @@ export default function CustomerDetailPage() {
   const hasTodayKarte = isToday(latestVisit?.visitDate)
   const isNewCustomer = customer.visitCount <= 1
 
-  // The visit to show in 前回施術サマリー
   const summaryVisit = hasTodayKarte ? allVisits[1] : latestVisit
   const reaction = summaryVisit?.reaction as Reaction | null
   const treatmentRecord = summaryVisit?.treatmentRecord as TreatmentRecord | null
@@ -157,7 +156,7 @@ export default function CustomerDetailPage() {
         <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
           <div className="flex items-start justify-between flex-wrap gap-3">
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1">
                 <h2 className="text-2xl font-bold text-text">{customer.name}</h2>
                 <span className={`text-sm px-3 py-1 rounded-full font-semibold ${
                   isNewCustomer ? 'bg-roseLight text-rose' :
@@ -172,6 +171,9 @@ export default function CustomerDetailPage() {
                   </span>
                 )}
               </div>
+              {customer.nameKana && (
+                <p className="text-sm text-textLight mb-1">{customer.nameKana}</p>
+              )}
               <p className="text-sm text-textLight">
                 前回来店: <span className="text-text font-medium">{formatDate(customer.lastVisitDate)}</span>
               </p>
@@ -191,11 +193,10 @@ export default function CustomerDetailPage() {
             title="前回施術サマリー"
             collapsible
             defaultOpen
-            badge={formatDate(summaryVisit.visitDate)}
+            badge={`第${summaryVisit.visitNumber}回 ${formatDate(summaryVisit.visitDate)}`}
             badgeColor="bg-prev text-prevText"
           >
             <div className="space-y-4">
-              {/* AI placeholder text */}
               <div className="bg-primary bg-opacity-5 border border-primary border-opacity-20 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs px-2 py-0.5 rounded-full bg-primary bg-opacity-10 text-primary font-medium">
@@ -212,7 +213,6 @@ export default function CustomerDetailPage() {
                 </p>
               </div>
 
-              {/* NG points */}
               {ngPoints.length > 0 && (
                 <div>
                   <p className="text-xs text-warning font-semibold mb-1.5">NG事項</p>
@@ -226,13 +226,11 @@ export default function CustomerDetailPage() {
                 </div>
               )}
 
-              {/* Design with tap-to-expand */}
               <div>
                 <p className="text-xs text-textLight font-medium mb-2">前回デザイン</p>
                 <DesignBadge designPlan={designPlan} />
               </div>
 
-              {/* Treatment */}
               {treatmentRecord && (
                 <div>
                   <p className="text-xs text-textLight font-medium mb-2">実施内容</p>
@@ -251,7 +249,6 @@ export default function CustomerDetailPage() {
                 </div>
               )}
 
-              {/* Reaction */}
               {reaction && (
                 <div>
                   <p className="text-xs text-textLight font-medium mb-2">仕上がり反応</p>
@@ -280,7 +277,6 @@ export default function CustomerDetailPage() {
                 </div>
               )}
 
-              {/* Handover → "前回から引き継ぎ" */}
               {handover?.handoverText && (
                 <div>
                   <p className="text-xs text-textLight font-medium mb-2">前回から引き継ぎ</p>
@@ -293,7 +289,7 @@ export default function CustomerDetailPage() {
           </SectionCard>
         )}
 
-        {/* Customer profile — 5 fields only */}
+        {/* Customer profile */}
         <SectionCard
           title="お客様情報枠"
           collapsible
@@ -322,7 +318,7 @@ export default function CustomerDetailPage() {
               <p className="text-sm font-semibold text-success mb-1">本日のカルテ完了</p>
               <p className="text-xs text-textLight mb-4">記録日: {formatDate(latestVisit?.visitDate)}</p>
               <button
-                onClick={() => router.push(`/customers/${id}/visit/${latestVisit?.id}`)}
+                onClick={() => router.push(`/customers/${id}/visit/${latestVisit?.treatmentId}`)}
                 className="w-full py-3 px-5 bg-cardAlt border border-border text-primary rounded-xl text-sm font-medium hover:bg-accentLight transition-colors"
               >
                 本日のカルテを確認・編集する
@@ -344,7 +340,7 @@ export default function CustomerDetailPage() {
           )}
         </SectionCard>
 
-        {/* 来店履歴 — clickable */}
+        {/* 来店履歴 */}
         {allVisits.length > 0 && (
           <SectionCard
             title="来店履歴"
@@ -353,18 +349,18 @@ export default function CustomerDetailPage() {
             badge={`${allVisits.length}件`}
           >
             <div className="space-y-2">
-              {allVisits.map((visit, index) => {
+              {allVisits.map((visit) => {
                 const vReaction = visit.reaction as Reaction | null
                 const vHandover = visit.handover as Handover | null
                 const vDesign = visit.designPlan as DesignPlan | null
                 return (
                   <button
-                    key={visit.id}
-                    onClick={() => router.push(`/customers/${id}/visit/${visit.id}`)}
+                    key={visit.treatmentId}
+                    onClick={() => router.push(`/customers/${id}/visit/${visit.treatmentId}`)}
                     className="w-full flex gap-3 py-3 border-b border-border last:border-0 hover:bg-cardAlt rounded-xl px-2 transition-colors text-left"
                   >
                     <div className="flex-shrink-0 w-8 h-8 bg-cardAlt rounded-full flex items-center justify-center text-xs font-bold text-primary">
-                      {allVisits.length - index}
+                      {visit.visitNumber}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">

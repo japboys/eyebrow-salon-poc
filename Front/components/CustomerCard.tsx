@@ -49,10 +49,10 @@ export default function CustomerCard({ customer }: CustomerCardProps) {
   const latestVisit = allVisits[0]
   const hasTodayKarte = isToday(latestVisit?.visitDate)
 
-  // Show latest 2 visits (including today's if it exists)
+  // Past 2 records sorted by visitNumber desc (API already returns desc)
   const displayedVisits = allVisits.slice(0, 2)
 
-  // Previous visit for summary link (latest non-today)
+  // For summary link: latest non-today
   const summaryVisit = hasTodayKarte ? allVisits[1] : latestVisit
 
   return (
@@ -77,22 +77,26 @@ export default function CustomerCard({ customer }: CustomerCardProps) {
         </span>
       </div>
 
-      {/* Visit history: latest 2 visits with 1-line summary */}
-      {displayedVisits.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs text-textLight font-medium mb-1.5">来店履歴</p>
+      {/* Past visit history: latest 2 or "過去カルテなし" */}
+      <div className="mb-4">
+        <p className="text-xs text-textLight font-medium mb-1.5">過去カルテ</p>
+        {isNewCustomer || displayedVisits.length === 0 ? (
+          <p className="text-xs text-muted italic px-1">過去カルテなし</p>
+        ) : (
           <div className="space-y-1.5">
             {displayedVisits.map((visit) => {
               const visitIsToday = isToday(visit.visitDate)
               const summaryLine = buildVisitSummaryLine(visit)
               return (
                 <button
-                  key={visit.id}
-                  onClick={() => router.push(`/customers/${customer.id}/visit/${visit.id}`)}
+                  key={visit.treatmentId}
+                  onClick={() => router.push(`/customers/${customer.id}/visit/${visit.treatmentId}`)}
                   className="w-full text-left px-3 py-2 rounded-xl bg-prev border border-dashed border-prevText hover:bg-accentLight hover:border-accent hover:border-solid transition-all"
                 >
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-xs font-semibold text-prevText">{formatDate(visit.visitDate)}</span>
+                    <span className="text-xs font-semibold text-prevText">
+                      第{visit.visitNumber}回 {formatDate(visit.visitDate)}
+                    </span>
                     {visitIsToday && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success bg-opacity-20 text-success font-medium">本日</span>
                     )}
@@ -104,8 +108,8 @@ export default function CustomerCard({ customer }: CustomerCardProps) {
               )
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 前回サマリーを見る */}
       {summaryVisit && (
@@ -132,7 +136,7 @@ export default function CustomerCard({ customer }: CustomerCardProps) {
       ) : hasTodayKarte ? (
         <div className="flex gap-2">
           <button
-            onClick={() => router.push(`/customers/${customer.id}/visit/${latestVisit.id}`)}
+            onClick={() => router.push(`/customers/${customer.id}/visit/${latestVisit.treatmentId}`)}
             className="flex-1 py-2.5 px-4 bg-success bg-opacity-10 border border-success border-opacity-30 text-success rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-success hover:bg-opacity-20 transition-colors"
           >
             <span>✓</span>

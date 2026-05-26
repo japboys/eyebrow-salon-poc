@@ -32,9 +32,14 @@ export default function HomePage() {
       })
   }, [])
 
-  const filtered = customers.filter((c) =>
-    c.name.includes(search) || (c.profile?.defaultDesign?.includes(search) ?? false)
-  )
+  const filtered = customers.filter((c) => {
+    if (!search) return true
+    return (
+      c.name.includes(search) ||
+      (c.nameKana?.includes(search) ?? false) ||
+      (c.profile?.defaultDesign?.includes(search) ?? false)
+    )
+  })
 
   return (
     <div className="min-h-screen bg-background">
@@ -68,7 +73,7 @@ export default function HomePage() {
             </svg>
             <input
               type="text"
-              placeholder="顧客名で検索..."
+              placeholder="顧客名・ふりがなで検索..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-border bg-card text-text placeholder-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary focus:ring-opacity-20 transition-all"

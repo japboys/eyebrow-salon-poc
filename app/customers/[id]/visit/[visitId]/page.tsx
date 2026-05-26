@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Customer, VisitRecord, DesignPlan, TodayObservation, TreatmentRecord, Reaction, Handover } from '@/Other/types'
 import SectionCard from '@/Front/components/SectionCard'
@@ -45,9 +45,14 @@ interface FormState {
   nextTimeCustomerRequest: string
   handoverText: string
   staffEditNote: string
+  staffEditedHandover: string
   skinCautionTags: string[]
   nextImprovementTags: string[]
   asymmetryCautionTags: string[]
+}
+
+function getDisplayObservationNote(visit: VisitRecord): string {
+  return visit.staffEditedHandover || visit.aiGeneratedHandover || visit.originalObservationMemo || ''
 }
 
 function visitToForm(visit: VisitRecord): FormState {
@@ -70,7 +75,7 @@ function visitToForm(visit: VisitRecord): FormState {
     selfCareImpactLevel: to?.selfCareImpactLevel ?? 0,
     todaySkinConditionTags: to?.todaySkinConditionTags ?? [],
     todaySkinRiskLevel: to?.todaySkinRiskLevel ?? 0,
-    observationNote: to?.observationNote ?? '',
+    observationNote: getDisplayObservationNote(visit),
     treatmentTags: tr?.treatmentTags ?? [],
     rightBrowTreatmentTags: tr?.rightBrowTreatmentTags ?? [],
     leftBrowTreatmentTags: tr?.leftBrowTreatmentTags ?? [],
@@ -81,6 +86,7 @@ function visitToForm(visit: VisitRecord): FormState {
     nextTimeCustomerRequest: r?.nextTimeCustomerRequest ?? '',
     handoverText: h?.handoverText ?? '',
     staffEditNote: h?.staffEditNote ?? '',
+    staffEditedHandover: visit.staffEditedHandover ?? '',
     skinCautionTags: h?.skinCautionTags ?? [],
     nextImprovementTags: h?.nextImprovementTags ?? [],
     asymmetryCautionTags: h?.asymmetryCautionTags ?? [],
@@ -127,8 +133,10 @@ function DesignBadge({ designPlan }: { designPlan: DesignPlan | null }) {
 export default function VisitDetailPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const customerId = params?.id as string
   const visitId = params?.visitId as string
+  const isDebug = searchParams?.get('debug') === 'true'
 
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [visit, setVisit] = useState<VisitRecord | null>(null)
@@ -149,7 +157,7 @@ export default function VisitDetailPage() {
       })
       .then((data: Customer) => {
         setCustomer(data)
-        const found = data.visitRecords?.find((v) => v.id === visitId) ?? null
+        const found = data.visitRecords?.find((v) => v.treatmentId === visitId) ?? null
         setVisit(found)
         if (found) setForm(visitToForm(found))
         setLoading(false)
@@ -225,6 +233,8 @@ export default function VisitDetailPage() {
           nextImprovementTags: form.nextImprovementTags,
           asymmetryCautionTags: form.asymmetryCautionTags,
         },
+        // 編集時の観察メモはstaffEditedHandoverに保存（originalObservationMemoは保護）
+        staffEditedHandover: form.staffEditedHandover || form.observationNote || undefined,
       }
 
       const res = await fetch(`/api/visits/${visitId}`, {
@@ -274,9 +284,6 @@ export default function VisitDetailPage() {
     try { return JSON.parse(customer.profile.ngPoints as string) } catch { return [] }
   })()
 
-  const visitIndex = (customer.visitRecords ?? []).findIndex(v => v.id === visitId)
-  const visitNumber = (customer.visitRecords?.length ?? 0) - visitIndex
-
   return (
     <div className="min-h-screen bg-background pb-28">
       {/* Header */}
@@ -294,7 +301,7 @@ export default function VisitDetailPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-primary">{customer.name}</h1>
-                <span className="text-sm text-textLight">({visitNumber}回目)</span>
+                <span className="text-sm text-textLight">(第{visit.visitNumber}回)</span>
               </div>
               <p className="text-xs text-textLight">{formatDate(visit.visitDate)} のカルテ</p>
             </div>
@@ -323,7 +330,17 @@ export default function VisitDetailPage() {
           </div>
         )}
 
-        {/* 前回施術サマリー */}
+        {/* カルテ識別情報 */}
+        <div className="bg-cardAlt rounded-2xl border border-border px-4 py-3 flex flex-wrap gap-3 text-xs text-textLight">
+          <span><span className="font-medium text-text">カルテID:</span> {visit.treatmentId}</span>
+          <span><span className="font-medium text-text">来店回数:</span> 第{visit.visitNumber}回</span>
+          <span><span className="font-medium text-text">施術日:</span> {formatDate(visit.visitDate)}</span>
+          {visit.previousTreatmentId && (
+            <span><span className="font-medium text-text">前回:</span> {visit.previousTreatmentId}</span>
+          )}
+        </div>
+
+        {/* 施術サマリー */}
         <SectionCard
           title="施術サマリー"
           collapsible
@@ -332,7 +349,6 @@ export default function VisitDetailPage() {
           badgeColor="bg-prev text-prevText"
         >
           <div className="space-y-4">
-            {/* AI placeholder */}
             <div className="bg-primary bg-opacity-5 border border-primary border-opacity-20 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs px-2 py-0.5 rounded-full bg-primary bg-opacity-10 text-primary font-medium">
@@ -340,7 +356,7 @@ export default function VisitDetailPage() {
                 </span>
               </div>
               <p className="text-sm text-text leading-relaxed">
-                {customer.name}様の{visitNumber}回目の施術記録です。
+                {customer.name}様の第{visit.visitNumber}回施術記録です。
                 {treatmentData?.treatmentTags && treatmentData.treatmentTags.length > 0
                   ? `${treatmentData.treatmentTags.join('・')}を実施。`
                   : ''}
@@ -349,7 +365,6 @@ export default function VisitDetailPage() {
               </p>
             </div>
 
-            {/* NG */}
             {ngPoints.length > 0 && (
               <div>
                 <p className="text-xs text-warning font-semibold mb-1.5">NG事項</p>
@@ -363,13 +378,11 @@ export default function VisitDetailPage() {
               </div>
             )}
 
-            {/* Design tap-to-expand */}
             <div>
               <p className="text-xs text-textLight font-medium mb-2">デザイン</p>
               <DesignBadge designPlan={designPlanData} />
             </div>
 
-            {/* Treatment */}
             {treatmentData?.treatmentTags && treatmentData.treatmentTags.length > 0 && (
               <div>
                 <p className="text-xs text-textLight font-medium mb-2">実施内容</p>
@@ -384,7 +397,6 @@ export default function VisitDetailPage() {
               </div>
             )}
 
-            {/* Reaction */}
             {reactionData && (
               <div>
                 <p className="text-xs text-textLight font-medium mb-2">仕上がり反応</p>
@@ -406,13 +418,25 @@ export default function VisitDetailPage() {
               </div>
             )}
 
-            {/* Handover → 前回から引き継ぎ */}
             {handoverData?.handoverText && (
               <div>
                 <p className="text-xs text-textLight font-medium mb-2">前回から引き継ぎ</p>
                 <div className="bg-primary bg-opacity-5 border border-primary border-opacity-20 rounded-xl p-3">
                   <p className="text-sm text-primary font-medium">{handoverData.handoverText}</p>
                 </div>
+              </div>
+            )}
+
+            {/* 観察メモ表示（優先順位: staffEditedHandover > aiGeneratedHandover > originalObservationMemo） */}
+            {(visit.staffEditedHandover || visit.aiGeneratedHandover || visit.originalObservationMemo) && (
+              <div>
+                <p className="text-xs text-textLight font-medium mb-2">観察メモ</p>
+                <p className="text-sm text-text bg-cardAlt rounded-xl px-3 py-2">
+                  {visit.staffEditedHandover || visit.aiGeneratedHandover || visit.originalObservationMemo}
+                </p>
+                {visit.staffEditedHandover && visit.originalObservationMemo && visit.staffEditedHandover !== visit.originalObservationMemo && (
+                  <p className="text-xs text-textLight mt-1 italic">（原文: {visit.originalObservationMemo}）</p>
+                )}
               </div>
             )}
           </div>
@@ -423,9 +447,9 @@ export default function VisitDetailPage() {
           <ProfileSection profile={customer.profile} />
         </SectionCard>
 
-        {/* JSON確認（折りたたみ） */}
-        {!isEditing && (
-          <SectionCard title="データ確認（JSON）" collapsible defaultOpen={false}>
+        {/* デバッグ用JSONデータ — ?debug=true のときのみ表示 */}
+        {isDebug && !isEditing && (
+          <SectionCard title="データ確認（JSON）[DEBUG]" collapsible defaultOpen={false}>
             <details>
               <summary className="cursor-pointer text-sm text-textLight mb-3 hover:text-primary transition-colors">
                 全データを表示
@@ -455,7 +479,7 @@ export default function VisitDetailPage() {
           </div>
         )}
 
-        {/* Edit sections — shown only when isEditing */}
+        {/* Edit sections */}
         {isEditing && (
           <>
             <div className="bg-primary bg-opacity-5 border border-primary border-opacity-20 rounded-xl px-4 py-3">
@@ -539,12 +563,18 @@ export default function VisitDetailPage() {
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-text mb-2">観察メモ</p>
+                  <p className="text-sm font-medium text-text mb-2">観察メモ（スタッフ編集）</p>
+                  {visit.originalObservationMemo && (
+                    <p className="text-xs text-textLight mb-1.5 bg-prev rounded-lg px-3 py-1.5">
+                      原文: {visit.originalObservationMemo}
+                    </p>
+                  )}
                   <textarea
-                    value={form.observationNote}
-                    onChange={(e) => updateForm('observationNote', e.target.value)}
+                    value={form.staffEditedHandover || form.observationNote}
+                    onChange={(e) => updateForm('staffEditedHandover', e.target.value)}
                     className="w-full p-3 rounded-xl border border-border bg-cardAlt text-sm text-text focus:outline-none focus:border-primary resize-none"
-                    rows={2}
+                    rows={3}
+                    placeholder="観察メモを編集（原文は保護されます）"
                   />
                 </div>
               </div>
@@ -670,7 +700,7 @@ export default function VisitDetailPage() {
         )}
       </main>
 
-      {/* Fixed footer — only shown in edit mode */}
+      {/* Fixed footer — edit mode only */}
       {isEditing && (
         <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border px-4 py-4 shadow-lg">
           <div className="max-w-3xl mx-auto flex gap-3">

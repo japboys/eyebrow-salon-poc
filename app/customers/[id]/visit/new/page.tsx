@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { Customer, TodayObservation, VisitRecord, DesignPlan } from '@/Other/types'
+import { Customer, VisitRecord, DesignPlan } from '@/Other/types'
 import SectionCard from '@/Front/components/SectionCard'
 import ChipSelector from '@/Front/components/ChipSelector'
 import LevelSelector, { thicknessLabels, angleLabels, densityLabels } from '@/Front/components/LevelSelector'
@@ -18,8 +18,6 @@ const REACTION_TAGS = ['満足', 'とても満足', 'ナチュラル仕上げ良
 const CONCERN_TAGS = ['少し薄かったかも', '右眉尻が少し薄い', '左右差が気になる', '少し太かった', '濃さが気になる']
 const CHANGE_REASON_TAGS = ['顧客希望', 'スタッフ判断', '季節の変化', 'トレンド', 'ライフスタイル変化']
 const MAJOR_CHANGE_REASON_TAGS = ['初回', '雰囲気を変えたい', 'デザインをリセット', '大きなイメージチェンジ']
-
-// Conditional deep-drill options
 const SKIN_CAUTION_TAGS = ['赤みが出やすい', '乾燥あり', 'ワックス範囲注意', '一部施術を避ける', '痛みを感じやすい', '施術前に肌状態を再確認']
 const NEXT_IMPROVEMENT_TAGS = ['細さを調整', '太さを残す', '濃さを調整', '左右差を調整', '角度を弱める', '眉山を出しすぎない', '赤み・痛みに配慮', 'カウンセリングで再確認']
 const ASYMMETRY_CAUTION_TAGS = ['右眉が高く見えやすい', '左眉が高く見えやすい', '右眉尻が薄い', '左眉尻が薄い', '眉頭の高さ注意', '眉山位置注意', 'メイク補正前提', '次回まで伸ばす']
@@ -109,7 +107,7 @@ export default function NewVisitPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [savedVisitId, setSavedVisitId] = useState<string | null>(null)
+  const [savedTreatmentId, setSavedTreatmentId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<FormState | null>(null)
   const [prevDesiredDesign, setPrevDesiredDesign] = useState<string | null>(null)
@@ -124,7 +122,8 @@ export default function NewVisitPage() {
       .then((data: Customer) => {
         setCustomer(data)
         setForm(getDefaultForm(policyParam, data.profile))
-        const prevDesign = (data.visitRecords?.[0]?.designPlan as DesignPlan | null)?.desiredDesign ?? null
+        const prevRecord = data.visitRecords?.[0]
+        const prevDesign = (prevRecord?.designPlan as DesignPlan | null)?.desiredDesign ?? null
         setPrevDesiredDesign(prevDesign)
         setLoading(false)
       })
@@ -145,7 +144,7 @@ export default function NewVisitPage() {
       const body = {
         customerId: id,
         visitDate: new Date().toISOString(),
-        visitType: customer.visitCount <= 1 ? 'first_visit' : 'repeat_visit',
+        visitType: customer.visitCount === 0 ? 'first_visit' : 'repeat_visit',
         visitPolicy: form.visitPolicy,
         changedFields: form.changedFields,
         designPlan: {
@@ -186,6 +185,7 @@ export default function NewVisitPage() {
           nextImprovementTags: form.nextImprovementTags,
           asymmetryCautionTags: form.asymmetryCautionTags,
         },
+        originalObservationMemo: form.observationNote,
       }
 
       const res = await fetch('/api/visits', {
@@ -196,7 +196,7 @@ export default function NewVisitPage() {
 
       if (!res.ok) throw new Error('保存に失敗しました')
       const visit = await res.json()
-      setSavedVisitId(visit.id)
+      setSavedTreatmentId(visit.treatmentId)
       setSaved(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存に失敗しました')
@@ -237,9 +237,9 @@ export default function NewVisitPage() {
           <h2 className="text-xl font-bold text-success mb-2">保存完了</h2>
           <p className="text-textLight text-sm mb-6">{customer.name} 様のカルテを保存しました</p>
           <div className="flex flex-col gap-3">
-            {savedVisitId && (
+            {savedTreatmentId && (
               <button
-                onClick={() => router.push(`/customers/${id}/visit/${savedVisitId}`)}
+                onClick={() => router.push(`/customers/${id}/visit/${savedTreatmentId}`)}
                 className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primaryLight transition-colors shadow-sm"
               >
                 カルテを確認する →
@@ -266,20 +266,19 @@ export default function NewVisitPage() {
   }
 
   const profile = customer.profile
-
-  // First visit data for reference in お客様眉状態
   const allVisits: VisitRecord[] = customer.visitRecords ?? []
-  const firstVisit = allVisits.length > 0 ? allVisits[allVisits.length - 1] : null
-  const firstObservation = firstVisit?.todayObservation as TodayObservation | null
+  const prevVisit = allVisits[0]
+  const prevDesignPlan = prevVisit?.designPlan as DesignPlan | null
 
   const thicknessDiff = Math.abs(form.thicknessLevel - (profile?.preferredThickness ?? 0))
   const angleDiff = Math.abs(form.angleLevel - (profile?.preferredAngle ?? 0))
   const densityDiff = Math.abs(form.densityLevel - Math.max(-3, Math.min(3, profile?.preferredDensity ?? 0)))
 
-  // Conditions for conditional deep-drill sections
   const hasSkinCaution = form.todaySkinRiskLevel >= 1 || form.todaySkinConditionTags.some(t => t !== '問題なし')
   const hasLowSatisfaction = form.satisfactionLevel <= 3 || form.concernTags.length > 0
   const hasAsymmetry = form.browConditionTags.includes('左右差目立つ')
+
+  const designChanged = prevDesiredDesign !== null && form.desiredDesign !== '' && form.desiredDesign !== prevDesiredDesign
 
   return (
     <div className="min-h-screen bg-background pb-28">
@@ -297,7 +296,7 @@ export default function NewVisitPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-primary">{customer.name}</h1>
-              <span className="text-sm text-textLight">({customer.visitCount}回目)</span>
+              <span className="text-sm text-textLight">({customer.visitCount + 1}回目)</span>
             </div>
             <p className="text-xs text-textLight">来店記録入力</p>
           </div>
@@ -305,13 +304,14 @@ export default function NewVisitPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-        {/* Today's date — 2nd element */}
+        {/* Today's date */}
         <div className="bg-card rounded-2xl border border-border px-5 py-3 flex items-center gap-3">
           <svg className="w-4 h-4 text-textLight flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           <span className="text-sm font-semibold text-text">{getTodayLabel()}</span>
         </div>
+
         {error && (
           <div className="bg-orange-50 border border-warning border-opacity-30 rounded-xl p-3 text-warning text-sm">
             {error}
@@ -322,7 +322,7 @@ export default function NewVisitPage() {
         <SectionCard title="デザイン調整" collapsible defaultOpen>
           <div className="space-y-6">
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <p className="text-sm font-medium text-text">希望デザイン</p>
                 {prevDesiredDesign && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-prev text-prevText border border-dashed border-prevText">
@@ -335,13 +335,21 @@ export default function NewVisitPage() {
                 selected={form.desiredDesign ? [form.desiredDesign] : []}
                 onChange={(v) => updateForm('desiredDesign', v[0] ?? '')}
                 multiSelect={false}
+                previousValues={prevDesiredDesign ? [prevDesiredDesign] : undefined}
               />
+              {/* 前回/今回の差分表示 */}
+              {designChanged && (
+                <div className="mt-2 flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-warning bg-opacity-10 border border-warning border-opacity-30">
+                  <span className="text-warning font-semibold">変更あり</span>
+                  <span className="text-textLight">前回：{prevDesiredDesign} / 今回：{form.desiredDesign}</span>
+                </div>
+              )}
             </div>
 
             <LevelSelector
               title="太さ"
               value={form.thicknessLevel}
-              previousValue={profile?.preferredThickness}
+              previousValue={prevDesignPlan?.thicknessLevel ?? profile?.preferredThickness}
               onChange={(v) => updateForm('thicknessLevel', v)}
               labels={thicknessLabels}
             />
@@ -349,7 +357,7 @@ export default function NewVisitPage() {
             <LevelSelector
               title="角度"
               value={form.angleLevel}
-              previousValue={profile?.preferredAngle}
+              previousValue={prevDesignPlan?.angleLevel ?? profile?.preferredAngle}
               onChange={(v) => updateForm('angleLevel', v)}
               labels={angleLabels}
             />
@@ -357,7 +365,7 @@ export default function NewVisitPage() {
             <LevelSelector
               title="濃さ"
               value={form.densityLevel}
-              previousValue={Math.max(-3, Math.min(3, profile?.preferredDensity ?? 0))}
+              previousValue={prevDesignPlan?.densityLevel ?? Math.max(-3, Math.min(3, profile?.preferredDensity ?? 0))}
               onChange={(v) => updateForm('densityLevel', v)}
               labels={densityLabels}
               minLevel={-3}
@@ -417,27 +425,9 @@ export default function NewVisitPage() {
           </SectionCard>
         )}
 
-        {/* Section 2: お客様眉状態 (formerly 当日観察) */}
+        {/* Section 2: お客様眉状態 */}
         <SectionCard title="お客様眉状態" collapsible defaultOpen>
           <div className="space-y-5">
-            {/* First visit reference */}
-            {firstObservation && firstVisit?.id !== (customer.visitRecords?.[0]?.id) && (
-              <div className="bg-prev rounded-xl p-3 border border-dashed border-prevText">
-                <p className="text-xs font-medium text-prevText mb-2">初回記録（参考）</p>
-                <div className="space-y-1 text-xs text-textLight">
-                  {firstObservation.browConditionTags?.length > 0 && (
-                    <p>眉状態: {firstObservation.browConditionTags.join('・')}</p>
-                  )}
-                  {firstObservation.todaySkinConditionTags?.length > 0 && (
-                    <p>肌状態: {firstObservation.todaySkinConditionTags.join('・')}</p>
-                  )}
-                  {firstObservation.selfCareImpactArea?.filter(a => a !== 'なし').length > 0 && (
-                    <p>自己処理: {firstObservation.selfCareImpactArea.filter(a => a !== 'なし').join('・')}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
             <div>
               <p className="text-sm font-medium text-text mb-2">当日の眉状態</p>
               <ChipSelector
@@ -535,7 +525,7 @@ export default function NewVisitPage() {
               </div>
             )}
 
-            {form.todaySkinRiskLevel < 2 && (
+            {form.todaySkinRiskLevel < 2 && form.selfCareImpactLevel < 2 && (
               <div>
                 <p className="text-sm font-medium text-text mb-2">観察メモ</p>
                 <textarea
@@ -658,7 +648,7 @@ export default function NewVisitPage() {
           </div>
         </SectionCard>
 
-        {/* Conditional: Skin caution for next staff */}
+        {/* Conditional: Skin caution */}
         {hasSkinCaution && (
           <SectionCard title="次回スタッフへの肌注意は？" collapsible defaultOpen badge="肌状態注意" badgeColor="bg-orange-50 text-warning">
             <ChipSelector
@@ -669,7 +659,7 @@ export default function NewVisitPage() {
           </SectionCard>
         )}
 
-        {/* Conditional: Next improvement points */}
+        {/* Conditional: Next improvement */}
         {hasLowSatisfaction && (
           <SectionCard title="次回改善するべき点は？" collapsible defaultOpen badge="満足度・懸念あり" badgeColor="bg-roseLight text-rose">
             <ChipSelector

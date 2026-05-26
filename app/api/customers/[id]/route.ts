@@ -11,11 +11,12 @@ function parseJsonField<T>(value: string | null | undefined, fallback: T): T {
 }
 
 function formatVisitRecord(v: {
-  id: string
+  treatmentId: string
   customerId: string
+  visitNumber: number
   visitDate: Date
+  previousTreatmentId: string | null
   visitType: string
-  previousRecordId: string | null
   visitPolicy: string
   changedFields: string | null
   designPlan: string | null
@@ -23,13 +24,18 @@ function formatVisitRecord(v: {
   treatmentRecord: string | null
   reaction: string | null
   handover: string | null
+  originalObservationMemo: string | null
+  aiGeneratedObservationSummary: string | null
+  aiGeneratedHandover: string | null
+  staffEditedHandover: string | null
 }) {
   return {
-    id: v.id,
+    treatmentId: v.treatmentId,
     customerId: v.customerId,
+    visitNumber: v.visitNumber,
     visitDate: v.visitDate.toISOString(),
+    previousTreatmentId: v.previousTreatmentId,
     visitType: v.visitType,
-    previousRecordId: v.previousRecordId,
     visitPolicy: v.visitPolicy,
     changedFields: parseJsonField<string[]>(v.changedFields, []),
     designPlan: parseJsonField(v.designPlan, null),
@@ -37,6 +43,10 @@ function formatVisitRecord(v: {
     treatmentRecord: parseJsonField(v.treatmentRecord, null),
     reaction: parseJsonField(v.reaction, null),
     handover: parseJsonField(v.handover, null),
+    originalObservationMemo: v.originalObservationMemo,
+    aiGeneratedObservationSummary: v.aiGeneratedObservationSummary,
+    aiGeneratedHandover: v.aiGeneratedHandover,
+    staffEditedHandover: v.staffEditedHandover,
   }
 }
 
@@ -50,7 +60,7 @@ export async function GET(
       include: {
         profile: true,
         visitRecords: {
-          orderBy: { visitDate: 'desc' },
+          orderBy: { visitNumber: 'desc' },
           take: 20,
         },
       },
@@ -63,6 +73,7 @@ export async function GET(
     return NextResponse.json({
       id: customer.id,
       name: customer.name,
+      nameKana: customer.nameKana,
       visitCount: customer.visitCount,
       lastVisitDate: customer.lastVisitDate?.toISOString() ?? null,
       notes: customer.notes,
@@ -124,7 +135,7 @@ export async function PUT(
       where: { id: params.id },
       include: {
         profile: true,
-        visitRecords: { orderBy: { visitDate: 'desc' }, take: 20 },
+        visitRecords: { orderBy: { visitNumber: 'desc' }, take: 20 },
       },
     })
 
@@ -135,6 +146,7 @@ export async function PUT(
     return NextResponse.json({
       id: updated.id,
       name: updated.name,
+      nameKana: updated.nameKana,
       visitCount: updated.visitCount,
       lastVisitDate: updated.lastVisitDate?.toISOString() ?? null,
       notes: updated.notes,

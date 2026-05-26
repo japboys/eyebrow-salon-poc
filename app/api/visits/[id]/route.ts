@@ -16,19 +16,20 @@ export async function GET(
 ) {
   try {
     const visit = await prisma.visitRecord.findUnique({
-      where: { id: params.id },
+      where: { treatmentId: params.id },
     })
 
     if (!visit) {
       return NextResponse.json({ error: 'Visit record not found' }, { status: 404 })
     }
 
-    const formatted = {
-      id: visit.id,
+    return NextResponse.json({
+      treatmentId: visit.treatmentId,
       customerId: visit.customerId,
+      visitNumber: visit.visitNumber,
       visitDate: visit.visitDate.toISOString(),
+      previousTreatmentId: visit.previousTreatmentId,
       visitType: visit.visitType,
-      previousRecordId: visit.previousRecordId,
       visitPolicy: visit.visitPolicy,
       changedFields: parseJsonField<string[]>(visit.changedFields, []),
       designPlan: parseJsonField(visit.designPlan, null),
@@ -36,9 +37,11 @@ export async function GET(
       treatmentRecord: parseJsonField(visit.treatmentRecord, null),
       reaction: parseJsonField(visit.reaction, null),
       handover: parseJsonField(visit.handover, null),
-    }
-
-    return NextResponse.json(formatted)
+      originalObservationMemo: visit.originalObservationMemo,
+      aiGeneratedObservationSummary: visit.aiGeneratedObservationSummary,
+      aiGeneratedHandover: visit.aiGeneratedHandover,
+      staffEditedHandover: visit.staffEditedHandover,
+    })
   } catch (error) {
     console.error('GET /api/visits/[id] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -59,10 +62,11 @@ export async function PUT(
       treatmentRecord,
       reaction,
       handover,
+      staffEditedHandover,
     } = body
 
     const updated = await prisma.visitRecord.update({
-      where: { id: params.id },
+      where: { treatmentId: params.id },
       data: {
         ...(visitPolicy !== undefined && { visitPolicy }),
         ...(changedFields !== undefined && { changedFields: JSON.stringify(changedFields) }),
@@ -71,15 +75,17 @@ export async function PUT(
         ...(treatmentRecord !== undefined && { treatmentRecord: JSON.stringify(treatmentRecord) }),
         ...(reaction !== undefined && { reaction: JSON.stringify(reaction) }),
         ...(handover !== undefined && { handover: JSON.stringify(handover) }),
+        ...(staffEditedHandover !== undefined && { staffEditedHandover }),
       },
     })
 
     return NextResponse.json({
-      id: updated.id,
+      treatmentId: updated.treatmentId,
       customerId: updated.customerId,
+      visitNumber: updated.visitNumber,
       visitDate: updated.visitDate.toISOString(),
+      previousTreatmentId: updated.previousTreatmentId,
       visitType: updated.visitType,
-      previousRecordId: updated.previousRecordId,
       visitPolicy: updated.visitPolicy,
       changedFields: parseJsonField<string[]>(updated.changedFields, []),
       designPlan: parseJsonField(updated.designPlan, null),
@@ -87,6 +93,10 @@ export async function PUT(
       treatmentRecord: parseJsonField(updated.treatmentRecord, null),
       reaction: parseJsonField(updated.reaction, null),
       handover: parseJsonField(updated.handover, null),
+      originalObservationMemo: updated.originalObservationMemo,
+      aiGeneratedObservationSummary: updated.aiGeneratedObservationSummary,
+      aiGeneratedHandover: updated.aiGeneratedHandover,
+      staffEditedHandover: updated.staffEditedHandover,
     })
   } catch (error) {
     console.error('PUT /api/visits/[id] error:', error)
