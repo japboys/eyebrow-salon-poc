@@ -1,0 +1,10 @@
+{
+  "env": {
+    "DATABASE_URL": "file:./Db/prisma/dev.db"
+  },
+  "build": {
+    "env": {
+      "DATABASE_URL": "file:./Db/prisma/dev.db"
+    }
+  }
+}

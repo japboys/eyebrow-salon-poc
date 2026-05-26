@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate --schema Db/prisma/schema.prisma && prisma db push --schema Db/prisma/schema.prisma --accept-data-loss && ts-node --compiler-options \"{\\\"module\\\":\\\"CommonJS\\\"}\" Db/prisma/seed.ts && next build",
     "start": "next start",
     "lint": "next lint",
     "db:migrate": "prisma migrate dev --schema Db/prisma/schema.prisma",

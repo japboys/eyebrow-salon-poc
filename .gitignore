@@ -35,6 +35,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# SQLite database (local only)
+# SQLite databases (except the bundled seed for Vercel)
 *.db
+!Db/prisma/dev.db
 *.db-journal
