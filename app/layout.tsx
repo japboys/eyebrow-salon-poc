@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Noto_Sans_JP } from 'next/font/google'
+import { Noto_Sans_JP, Noto_Serif_JP } from 'next/font/google'
 import './globals.css'
 
 const notoSansJP = Noto_Sans_JP({
@@ -7,6 +7,13 @@ const notoSansJP = Noto_Sans_JP({
   weight: ['300', '400', '500', '600', '700'],
   display: 'swap',
   variable: '--font-noto-sans-jp',
+})
+
+const notoSerifJP = Noto_Serif_JP({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-noto-serif-jp',
 })
 
 export const metadata: Metadata = {
@@ -20,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="ja" className={notoSansJP.variable}>
+    <html lang="ja" className={`${notoSansJP.variable} ${notoSerifJP.variable}`}>
       <body className={`${notoSansJP.className} bg-background text-text min-h-screen`}>{children}</body>
     </html>
   )

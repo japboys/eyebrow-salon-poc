@@ -5,18 +5,17 @@ import { useRouter, useParams } from 'next/navigation'
 import { Customer, CustomerProfile } from '@/Other/types'
 import SectionCard from '@/Front/components/SectionCard'
 import ChipSelector from '@/Front/components/ChipSelector'
-import LevelSelector, { thicknessLabels, angleLabels, densityLabels } from '@/Front/components/LevelSelector'
+import LevelSelector, { thicknessLabels, densityLabels } from '@/Front/components/LevelSelector'
 
 const DESIGN_OPTIONS = ['平行', '平行アーチ', 'アーチ', 'ストレート', 'ナチュラル', '韓国風', 'お任せ']
 const ASYMMETRY_OPTIONS = ['ほぼなし', '右眉がやや高い', '左眉がやや高い', '右眉が長い', '左眉が長い', '右眉が太い', '左眉が太い', '右眉尻が薄い', '左眉尻が薄い']
 const HAIR_FLOW_OPTIONS = ['左眉尻薄め', '右眉尻薄め', '眉頭毛流れ強め', '眉下薄め', '中央欠け', '変化なし']
 const SKIN_RISK_OPTIONS = ['特になし', '赤みが出やすい', '乾燥しやすい', 'ワックス後赤み', 'ニキビができやすい', '敏感肌', '皮むけしやすい']
-const NG_POINTS_OPTIONS = ['細すぎNG', '太すぎNG', '角度強めNG', '濃すぎNG', '眉山強調NG', '左右差を強調しない', '細めNG']
+const NG_POINTS_OPTIONS = ['細すぎNG', '太すぎNG', '濃すぎNG', '眉山強調NG', '左右差を強調しない', '細めNG']
 
 interface ProfileFormState {
   defaultDesign: string
   preferredThickness: number
-  preferredAngle: number
   preferredDensity: number
   asymmetryType: string
   asymmetryLevel: number
@@ -33,7 +32,6 @@ function profileToForm(profile: CustomerProfile | null): ProfileFormState {
     return {
       defaultDesign: '',
       preferredThickness: 0,
-      preferredAngle: 0,
       preferredDensity: 0,
       asymmetryType: '',
       asymmetryLevel: 0,
@@ -53,8 +51,7 @@ function profileToForm(profile: CustomerProfile | null): ProfileFormState {
 
   return {
     defaultDesign: profile.defaultDesign ?? '',
-    preferredThickness: profile.preferredThickness,
-    preferredAngle: profile.preferredAngle,
+    preferredThickness: Math.max(-3, Math.min(3, profile.preferredThickness)),
     preferredDensity: profile.preferredDensity,
     asymmetryType: profile.asymmetryType ?? '',
     asymmetryLevel: profile.asymmetryLevel,
@@ -110,7 +107,6 @@ export default function EditCustomerPage() {
         profile: {
           defaultDesign: form.defaultDesign || null,
           preferredThickness: form.preferredThickness,
-          preferredAngle: form.preferredAngle,
           preferredDensity: form.preferredDensity,
           asymmetryType: form.asymmetryType || null,
           asymmetryLevel: form.asymmetryLevel,
@@ -203,7 +199,7 @@ export default function EditCustomerPage() {
         </SectionCard>
 
         {/* Level selectors */}
-        <SectionCard title="太さ・角度・濃さ（基本値）" defaultOpen>
+        <SectionCard title="太さ・濃さ（基本値）" defaultOpen>
           <div className="space-y-6">
             <LevelSelector
               title="太さの基本好み"
@@ -211,14 +207,8 @@ export default function EditCustomerPage() {
               onChange={(v) => updateForm('preferredThickness', v)}
               labels={thicknessLabels}
               showDiff={false}
-            />
-            <div className="border-t border-border" />
-            <LevelSelector
-              title="角度の基本好み"
-              value={form.preferredAngle}
-              onChange={(v) => updateForm('preferredAngle', v)}
-              labels={angleLabels}
-              showDiff={false}
+              minLevel={-3}
+              maxLevel={3}
             />
             <div className="border-t border-border" />
             <LevelSelector

@@ -22,12 +22,13 @@ function formatVisitRecord(v: {
   designPlan: string | null
   todayObservation: string | null
   treatmentRecord: string | null
-  reaction: string | null
   handover: string | null
   originalObservationMemo: string | null
   aiGeneratedObservationSummary: string | null
   aiGeneratedHandover: string | null
   staffEditedHandover: string | null
+  staffId: string | null
+  staff: { name: string } | null
 }) {
   return {
     treatmentId: v.treatmentId,
@@ -41,12 +42,13 @@ function formatVisitRecord(v: {
     designPlan: parseJsonField(v.designPlan, null),
     todayObservation: parseJsonField(v.todayObservation, null),
     treatmentRecord: parseJsonField(v.treatmentRecord, null),
-    reaction: parseJsonField(v.reaction, null),
     handover: parseJsonField(v.handover, null),
     originalObservationMemo: v.originalObservationMemo,
     aiGeneratedObservationSummary: v.aiGeneratedObservationSummary,
     aiGeneratedHandover: v.aiGeneratedHandover,
     staffEditedHandover: v.staffEditedHandover,
+    staffId: v.staffId,
+    staffName: v.staff?.name ?? null,
   }
 }
 
@@ -58,6 +60,7 @@ export async function GET() {
         visitRecords: {
           orderBy: { visitNumber: 'desc' },
           take: 2,
+          include: { staff: true },
         },
       },
       orderBy: { name: 'asc' },
@@ -67,6 +70,9 @@ export async function GET() {
       id: c.id,
       name: c.name,
       nameKana: c.nameKana,
+      age: c.age,
+      phone: c.phone,
+      email: c.email,
       visitCount: c.visitCount,
       lastVisitDate: c.lastVisitDate?.toISOString() ?? null,
       notes: c.notes,

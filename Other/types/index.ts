@@ -2,6 +2,9 @@ export interface Customer {
   id: string
   name: string
   nameKana: string | null
+  age: number | null
+  phone: string | null
+  email: string | null
   visitCount: number
   lastVisitDate: string | null
   notes: string | null
@@ -14,7 +17,6 @@ export interface CustomerProfile {
   customerId: string
   defaultDesign: string | null
   preferredThickness: number
-  preferredAngle: number
   preferredDensity: number
   asymmetryType: string | null
   asymmetryLevel: number
@@ -26,6 +28,20 @@ export interface CustomerProfile {
   generalHandoverNotes: string | null
 }
 
+export interface Appointment {
+  id: string
+  customerId: string
+  date: string
+  time: string
+  status: 'scheduled' | 'completed' | 'cancelled'
+  visitRecordId: string | null
+}
+
+export interface Staff {
+  id: string
+  name: string
+}
+
 export interface VisitRecord {
   treatmentId: string
   customerId: string
@@ -33,28 +49,30 @@ export interface VisitRecord {
   visitDate: string
   previousTreatmentId: string | null
   visitType: 'first_visit' | 'repeat_visit'
-  visitPolicy: 'same_as_previous' | 'partial_change' | 'major_change'
+  visitPolicy: 'same_as_previous' | 'partial_change' | 'major_change' | 'draft'
   changedFields: string[]
   designPlan: DesignPlan | null
   todayObservation: TodayObservation | null
   treatmentRecord: TreatmentRecord | null
-  reaction: Reaction | null
   handover: Handover | null
   originalObservationMemo: string | null
   aiGeneratedObservationSummary: string | null
   aiGeneratedHandover: string | null
   staffEditedHandover: string | null
+  staffId: string | null
+  staffName: string | null
 }
 
 export interface DesignPlan {
   desiredDesign: string
   thicknessLevel: number
-  angleLevel: number
   densityLevel: number
   changeReason: string[]
   majorChangeReason: string[]
   customerRequestNote: string
 }
+
+export type SkinRiskLevel = 'ok' | 'caution' | 'medication'
 
 export interface TodayObservation {
   browConditionTags: string[]
@@ -62,7 +80,9 @@ export interface TodayObservation {
   selfCareImpactArea: string[]
   selfCareImpactLevel: number
   todaySkinConditionTags: string[]
-  todaySkinRiskLevel: number
+  todaySkinRiskLevel: SkinRiskLevel | SkinRiskLevel[]
+  medicationTags: string[]
+  medicationOtherNote: string
   observationNote: string
 }
 
@@ -70,20 +90,15 @@ export interface TreatmentRecord {
   treatmentTags: string[]
   rightBrowTreatmentTags: string[]
   leftBrowTreatmentTags: string[]
+  customerStance: string
+  particularNote?: string
   treatmentNote: string
-}
-
-export interface Reaction {
-  satisfactionLevel: number
-  reactionTags: string[]
-  concernTags: string[]
-  nextTimeCustomerRequest: string
 }
 
 export interface Handover {
   handoverText: string
   staffEditNote: string
-  aiGeneratedPlaceholderText: string
+  aiGeneratedPlaceholderText?: string
   skinCautionTags?: string[]
   nextImprovementTags?: string[]
   asymmetryCautionTags?: string[]

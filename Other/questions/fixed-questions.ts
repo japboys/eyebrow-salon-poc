@@ -238,7 +238,7 @@ const SECTION_B: QuestionSection = {
     {
       id: 'B-4',
       prompt: '肌リスクレベル',
-      inputType: 'choice',
+      inputType: 'multi-choice',
       options: [
         { value: 'ok', label: '問題なし' },
         { value: 'low', label: '低リスク' },
@@ -403,17 +403,17 @@ const SECTION_E: QuestionSection = {
   questions: [
     {
       id: 'E-1',
-      prompt: '次回申し送りテキスト',
+      prompt: 'お客様との会話・次回共有メモ',
       inputType: 'free-text',
-      freeTextPlaceholder: '例：左眉下は削りすぎに注意。平行ラインを維持する方向で。',
+      freeTextPlaceholder: '例：次回は自然め希望。旅行の話題あり。',
       fieldPath: 'handover.handoverText',
       required: false,
     },
     {
       id: 'E-2',
-      prompt: 'スタッフメモ（内部用・顧客非公開）',
+      prompt: 'スタッフ内部メモ（顧客非公開）',
       inputType: 'free-text',
-      freeTextPlaceholder: '例：色味についての話題を避けた方が無難',
+      freeTextPlaceholder: '例：領収書発行あり。',
       fieldPath: 'handover.staffEditNote',
       required: false,
     },

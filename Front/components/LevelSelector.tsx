@@ -1,6 +1,11 @@
 'use client'
 
 import React from 'react'
+import {
+  densityLabels as sharedDensityLabels,
+  formatLevelValue,
+  thicknessLabels as sharedThicknessLabels,
+} from '@/Other/lib/levels'
 
 interface LevelSelectorProps {
   value: number
@@ -48,7 +53,7 @@ export default function LevelSelector({
               ? 'bg-cardAlt text-textLight border-border'
               : 'bg-primary bg-opacity-10 text-primary border-primary border-opacity-30'
           }`}>
-            {labels[value] ?? String(value)}
+            {formatLevelValue(value, labels)}
           </span>
         </div>
         {showDiff && diffText && (
@@ -107,7 +112,7 @@ export default function LevelSelector({
             onClick={() => onChange(previousValue)}
             className="text-xs px-3 py-1.5 rounded-lg bg-prev text-prevText border border-dashed border-prevText hover:bg-accentLight transition-colors"
           >
-            前回と同じ ({labels[previousValue]})
+            前回と同じ ({formatLevelValue(previousValue, labels)})
           </button>
         )}
         <button
@@ -129,40 +134,5 @@ export default function LevelSelector({
   )
 }
 
-export const thicknessLabels: Record<number, string> = {
-  [-5]: '激細',
-  [-4]: 'かなり細め',
-  [-3]: '細め',
-  [-2]: 'やや細め',
-  [-1]: '少し細め',
-  0: '標準',
-  1: '少し太め',
-  2: 'やや太め',
-  3: '太め',
-  4: 'かなり太め',
-  5: '激太',
-}
-
-export const angleLabels: Record<number, string> = {
-  [-5]: 'たれ眉',
-  [-4]: 'たれ眉やや',
-  [-3]: 'たれ眉自然',
-  [-2]: 'やや平行寄り',
-  [-1]: '少し平行',
-  0: '平行',
-  1: '少し角度',
-  2: 'やや角度',
-  3: 'つり眉自然',
-  4: 'つり眉やや',
-  5: 'つり眉',
-}
-
-export const densityLabels: Record<number, string> = {
-  [-3]: 'かなり薄め',
-  [-2]: 'やや薄め',
-  [-1]: '少し薄め',
-  0: '標準',
-  1: '少し濃め',
-  2: 'やや濃め',
-  3: 'かなり濃い',
-}
+export const thicknessLabels = sharedThicknessLabels
+export const densityLabels = sharedDensityLabels

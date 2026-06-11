@@ -26,17 +26,20 @@ export default function SectionCard({
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   return (
-    <div className={`bg-card rounded-2xl shadow-sm border border-border overflow-hidden ${className}`}>
+    <div
+      className={`bg-card rounded-2xl overflow-hidden ${className}`}
+      style={{ border: '1px solid #E8E0D7', boxShadow: '0 1px 4px rgba(90,62,43,0.05), 0 2px 10px rgba(90,62,43,0.04)' }}
+    >
+      {/* Section header */}
       <div
-        className={`flex items-center justify-between px-5 py-4 bg-cardAlt ${
-          collapsible ? 'cursor-pointer select-none' : ''
-        }`}
+        className={`flex items-center justify-between px-5 py-3.5 ${collapsible ? 'cursor-pointer select-none' : ''}`}
+        style={{ background: '#F8F3EE', borderBottom: isOpen || !collapsible ? '1px solid #E8E0D7' : 'none' }}
         onClick={collapsible ? () => setIsOpen(!isOpen) : undefined}
       >
-        <div className="flex items-center gap-3">
-          <h3 className="font-semibold text-primary text-base">{title}</h3>
+        <div className="flex items-center gap-2.5">
+          <h3 className="font-serif font-semibold text-primary text-[15px] tracking-wide">{title}</h3>
           {badge && (
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badgeColor}`}>
+            <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-medium ${badgeColor}`}>
               {badge}
             </span>
           )}
@@ -44,19 +47,22 @@ export default function SectionCard({
         <div className="flex items-center gap-2">
           {titleRight}
           {collapsible && (
-            <svg
-              className={`w-5 h-5 text-primary transition-transform duration-200 ${
-                isOpen ? 'rotate-180' : ''
-              }`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-200"
+              style={{
+                background: 'rgba(90,62,43,0.07)',
+                transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+              <svg className="w-3.5 h-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Section body */}
       {(!collapsible || isOpen) && (
         <div className="p-5 bg-card">
           {children}

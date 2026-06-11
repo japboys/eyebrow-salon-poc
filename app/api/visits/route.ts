@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@back/lib/db'
+import { toDateKey } from '@/Other/lib/date'
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const {
       customerId,
+      staffId,
       visitDate,
       visitType,
       visitPolicy,
@@ -13,7 +15,6 @@ export async function POST(request: Request) {
       designPlan,
       todayObservation,
       treatmentRecord,
-      reaction,
       handover,
       originalObservationMemo,
     } = body
@@ -44,19 +45,32 @@ export async function POST(request: Request) {
         designPlan: designPlan ? JSON.stringify(designPlan) : null,
         todayObservation: todayObservation ? JSON.stringify(todayObservation) : null,
         treatmentRecord: treatmentRecord ? JSON.stringify(treatmentRecord) : null,
-        reaction: reaction ? JSON.stringify(reaction) : null,
         handover: handover ? JSON.stringify(handover) : null,
         originalObservationMemo: originalObservationMemo ?? null,
+        staffId: staffId ?? null,
       },
     })
 
-    await prisma.customer.update({
-      where: { id: customerId },
-      data: {
-        visitCount: { increment: 1 },
-        lastVisitDate: visitDate ? new Date(visitDate) : new Date(),
-      },
-    })
+    // draft保存時はvisitCountを更新しない（確定時にPUTで更新）
+    if (visitPolicy !== 'draft') {
+      await prisma.customer.update({
+        where: { id: customerId },
+        data: {
+          visitCount: { increment: 1 },
+          lastVisitDate: visitDate ? new Date(visitDate) : new Date(),
+        },
+      })
+
+      // 該当日の予約があれば完了扱いにする
+      await prisma.appointment.updateMany({
+        where: {
+          customerId,
+          date: toDateKey(visitRecord.visitDate),
+          status: 'scheduled',
+        },
+        data: { status: 'completed', visitRecordId: treatmentId },
+      })
+    }
 
     return NextResponse.json({
       treatmentId: visitRecord.treatmentId,

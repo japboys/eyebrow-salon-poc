@@ -22,12 +22,13 @@ function formatVisitRecord(v: {
   designPlan: string | null
   todayObservation: string | null
   treatmentRecord: string | null
-  reaction: string | null
   handover: string | null
   originalObservationMemo: string | null
   aiGeneratedObservationSummary: string | null
   aiGeneratedHandover: string | null
   staffEditedHandover: string | null
+  staffId: string | null
+  staff: { name: string } | null
 }) {
   return {
     treatmentId: v.treatmentId,
@@ -41,12 +42,13 @@ function formatVisitRecord(v: {
     designPlan: parseJsonField(v.designPlan, null),
     todayObservation: parseJsonField(v.todayObservation, null),
     treatmentRecord: parseJsonField(v.treatmentRecord, null),
-    reaction: parseJsonField(v.reaction, null),
     handover: parseJsonField(v.handover, null),
     originalObservationMemo: v.originalObservationMemo,
     aiGeneratedObservationSummary: v.aiGeneratedObservationSummary,
     aiGeneratedHandover: v.aiGeneratedHandover,
     staffEditedHandover: v.staffEditedHandover,
+    staffId: v.staffId,
+    staffName: v.staff?.name ?? null,
   }
 }
 
@@ -62,6 +64,7 @@ export async function GET(
         visitRecords: {
           orderBy: { visitNumber: 'desc' },
           take: 20,
+          include: { staff: true },
         },
       },
     })
@@ -74,6 +77,9 @@ export async function GET(
       id: customer.id,
       name: customer.name,
       nameKana: customer.nameKana,
+      age: customer.age,
+      phone: customer.phone,
+      email: customer.email,
       visitCount: customer.visitCount,
       lastVisitDate: customer.lastVisitDate?.toISOString() ?? null,
       notes: customer.notes,
@@ -97,13 +103,24 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
-    const { name, notes, profile } = body
+    const { name, nameKana, age, phone, email, notes, profile } = body
 
-    if (name !== undefined || notes !== undefined) {
+    if (
+      name !== undefined ||
+      nameKana !== undefined ||
+      age !== undefined ||
+      phone !== undefined ||
+      email !== undefined ||
+      notes !== undefined
+    ) {
       await prisma.customer.update({
         where: { id: params.id },
         data: {
           ...(name !== undefined && { name }),
+          ...(nameKana !== undefined && { nameKana }),
+          ...(age !== undefined && { age }),
+          ...(phone !== undefined && { phone }),
+          ...(email !== undefined && { email }),
           ...(notes !== undefined && { notes }),
         },
       })
@@ -135,7 +152,7 @@ export async function PUT(
       where: { id: params.id },
       include: {
         profile: true,
-        visitRecords: { orderBy: { visitNumber: 'desc' }, take: 20 },
+        visitRecords: { orderBy: { visitNumber: 'desc' }, take: 20, include: { staff: true } },
       },
     })
 
@@ -147,6 +164,9 @@ export async function PUT(
       id: updated.id,
       name: updated.name,
       nameKana: updated.nameKana,
+      age: updated.age,
+      phone: updated.phone,
+      email: updated.email,
       visitCount: updated.visitCount,
       lastVisitDate: updated.lastVisitDate?.toISOString() ?? null,
       notes: updated.notes,
