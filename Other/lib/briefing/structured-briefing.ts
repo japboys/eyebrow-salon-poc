@@ -1,5 +1,4 @@
 import { Customer, DesignPlan, Handover, TodayObservation, TreatmentRecord, VisitRecord } from '@/Other/types'
-import { densityLabels, formatLevelValue, thicknessLabels } from '@/Other/lib/levels'
 import { hasSkinRisk } from '@/Other/lib/skin-risk'
 
 export type BriefingSectionId =
@@ -55,25 +54,28 @@ export function createStructuredBriefingCard(
   ])
 
   const designItems = compact([
-    designPlan?.desiredDesign ? `デザイン: ${designPlan.desiredDesign}` : null,
-    typeof designPlan?.thicknessLevel === 'number' ? `太さ: ${formatLevelValue(designPlan.thicknessLevel, thicknessLabels)}` : null,
-    typeof designPlan?.densityLevel === 'number' ? `濃さ: ${formatLevelValue(designPlan.densityLevel, densityLabels)}` : null,
-    designPlan?.changeReason?.length ? `変更理由: ${designPlan.changeReason.join(' / ')}` : null,
-    designPlan?.customerRequestNote ? `変更メモ: ${designPlan.customerRequestNote}` : null,
+    designPlan?.desiredDesign
+      ? `デザイン: ${designPlan.desiredDesign}${designPlan.designSubOption ? `（${designPlan.designSubOption}）` : ''}`
+      : null,
+    designPlan?.thickness && designPlan.thickness !== '太さキープ' ? `太さ: ${designPlan.thickness}` : null,
+    designPlan?.density && designPlan.density !== 'キープ' ? `濃さ: ${designPlan.density}` : null,
+    designPlan?.designMemo ? `施術メモ: ${designPlan.designMemo}` : null,
   ])
 
   const treatmentItems = compact([
-    treatment?.treatmentTags?.length ? `施術: ${treatment.treatmentTags.join(' / ')}` : null,
+    treatment?.rightBrowTreatmentTags?.length ? `右眉: ${treatment.rightBrowTreatmentTags.join(' / ')}` : null,
+    treatment?.leftBrowTreatmentTags?.length ? `左眉: ${treatment.leftBrowTreatmentTags.join(' / ')}` : null,
     treatment?.customerStance ? `施術方針: ${treatment.customerStance}` : null,
     treatment?.particularNote ? `こだわり確認: ${treatment.particularNote}` : null,
-    observation?.selfCareImpactExists ? `自己処理影響: ${observation.selfCareImpactArea.join(' / ') || 'あり'}` : null,
+    observation?.todaySkinConditionTags?.length && !observation.todaySkinConditionTags.includes('問題なし')
+      ? `お客様状態: ${observation.todaySkinConditionTags.join(' / ')}`
+      : null,
     observation?.observationNote ? `観察メモ: ${observation.observationNote}` : null,
   ])
 
   const handoverItems = compact([
     handover?.handoverText ? `共有メモ: ${handover.handoverText}` : null,
     handover?.skinCautionTags?.length ? `肌注意: ${handover.skinCautionTags.join(' / ')}` : null,
-    handover?.asymmetryCautionTags?.length ? `左右差注意: ${handover.asymmetryCautionTags.join(' / ')}` : null,
     handover?.staffEditNote ? `内部メモ: ${handover.staffEditNote}` : null,
   ])
 
@@ -83,8 +85,13 @@ export function createStructuredBriefingCard(
     visitNumber: visit?.visitNumber ?? null,
     sections: [
       { id: 'critical', title: '重要注意', items: criticalItems, level: criticalItems.length ? 'danger' : 'normal' },
-      { id: 'design', title: '前回デザイン・差分', items: designItems, level: designPlan?.changeReason?.length ? 'caution' : 'normal' },
-      { id: 'treatment', title: '施術・観察', items: treatmentItems, level: observation?.selfCareImpactExists ? 'caution' : 'normal' },
+      { id: 'design', title: '前回デザイン・差分', items: designItems, level: 'normal' },
+      {
+        id: 'treatment',
+        title: '施術・観察',
+        items: treatmentItems,
+        level: observation?.todaySkinConditionTags?.some((tag) => tag !== '問題なし') ? 'caution' : 'normal',
+      },
       { id: 'handover', title: '会話・次回共有', items: handoverItems, level: handoverItems.length ? 'caution' : 'normal' },
     ],
   }

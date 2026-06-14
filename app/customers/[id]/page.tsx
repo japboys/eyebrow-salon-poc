@@ -2,11 +2,12 @@
 
 import React, { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Customer, VisitRecord, Handover, DesignPlan } from '@/Other/types'
+import { Customer, VisitRecord, Handover, DesignPlan, TreatmentRecord } from '@/Other/types'
 import SectionCard from '@/Front/components/SectionCard'
 import CautionBadges from '@/Front/components/CautionBadges'
 import BeforeAfterPhotos from '@/Front/components/BeforeAfterPhotos'
 import StructuredBriefingPanel from '@/Front/components/StructuredBriefingPanel'
+import EyebrowMarkAccordion from '@/Front/components/EyebrowMarkAccordion'
 import SurveyContent, { DUMMY_SURVEY } from '@/Front/components/SurveyContent'
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -162,6 +163,18 @@ export default function CustomerDetailPage() {
           </div>
         )}
 
+        {/* 前回の施術マーク記録 */}
+        {summaryVisit && (
+          <EyebrowMarkAccordion
+            marks={(summaryVisit.treatmentRecord as TreatmentRecord | null)?.eyebrowTreatmentMarks ?? []}
+            onChange={() => {}}
+            customerId={id}
+            treatmentId={summaryVisit.treatmentId}
+            visitNumber={summaryVisit.visitNumber}
+            readOnly
+          />
+        )}
+
         {/* 前回施術サマリー */}
         {summaryVisit && (
           <SectionCard
@@ -181,7 +194,7 @@ export default function CustomerDetailPage() {
         <SectionCard
           title="事前アンケート"
           collapsible
-          defaultOpen
+          defaultOpen={false}
           badge={`回答日: ${DUMMY_SURVEY.submittedAt}`}
           badgeColor="bg-accentLight text-primary"
         >

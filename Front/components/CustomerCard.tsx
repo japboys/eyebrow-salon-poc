@@ -2,14 +2,18 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Customer, VisitRecord, DesignPlan, TreatmentRecord } from '@/Other/types'
+import { Customer, VisitRecord, DesignPlan, TreatmentRecord, Appointment, Staff } from '@/Other/types'
 import CautionBadges from '@/Front/components/CautionBadges'
 import SurveyResultModal from '@/Front/components/SurveyResultModal'
 import CustomerInfoModal from '@/Front/components/CustomerInfoModal'
 
+const DURATION_OPTIONS = [20, 30, 40, 50, 60, 75, 90, 120]
+
 interface CustomerCardProps {
   customer: Customer
-  appointmentTime?: string
+  appointment?: Appointment
+  staffList?: Staff[]
+  onAppointmentUpdate?: (updated: Appointment) => void
   onCustomerUpdate?: (updated: Customer) => void
 }
 
@@ -30,17 +34,34 @@ function isToday(dateStr: string | null | undefined): boolean {
 
 function buildVisitSummaryLine(visit: VisitRecord): string {
   const vDesign = (visit.designPlan as DesignPlan | null)?.desiredDesign
-  const vTreatment = (visit.treatmentRecord as TreatmentRecord | null)?.treatmentTags
+  const tr = visit.treatmentRecord as TreatmentRecord | null
+  const vTreatment = [...(tr?.rightBrowTreatmentTags ?? []), ...(tr?.leftBrowTreatmentTags ?? [])]
   const parts: string[] = []
   if (vDesign) parts.push(vDesign)
-  if (vTreatment?.length) parts.push(vTreatment.slice(0, 2).join('・'))
+  if (vTreatment.length) parts.push(vTreatment.slice(0, 2).join('・'))
   return parts.join(' / ')
 }
 
-export default function CustomerCard({ customer, appointmentTime, onCustomerUpdate }: CustomerCardProps) {
+export default function CustomerCard({ customer, appointment, staffList, onAppointmentUpdate, onCustomerUpdate }: CustomerCardProps) {
   const router = useRouter()
   const [showSurvey, setShowSurvey] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
+
+  const handleAppointmentChange = async (patch: { staffId?: string | null; duration?: number }) => {
+    if (!appointment) return
+    try {
+      const res = await fetch(`/api/appointments/${appointment.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) return
+      const updated = await res.json()
+      onAppointmentUpdate?.(updated)
+    } catch {
+      // 通信エラー時は表示状態を維持
+    }
+  }
 
   const isNewCustomer = customer.visitCount <= 1
   const allVisits: VisitRecord[] = customer.visitRecords ?? []
@@ -65,10 +86,10 @@ export default function CustomerCard({ customer, appointmentTime, onCustomerUpda
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-0.5">
                 <h3 className="font-serif text-[17px] font-semibold text-text leading-tight">{customer.name}</h3>
-                {appointmentTime && (
+                {appointment && (
                   <span className="text-[11px] px-2 py-0.5 rounded-full font-medium"
                     style={{ background: 'rgba(90,62,43,0.08)', color: '#5A3E2B' }}>
-                    {appointmentTime}〜
+                    {appointment.time}〜
                   </span>
                 )}
                 {isNewCustomer && (
@@ -105,6 +126,34 @@ export default function CustomerCard({ customer, appointmentTime, onCustomerUpda
               </span>
             </div>
           </div>
+
+          {/* 予約情報: 担当スタッフ・施術時間 */}
+          {appointment && (
+            <div className="flex items-center gap-2 flex-wrap mb-3">
+              <span className="text-[11px] text-muted flex-shrink-0">予約:</span>
+              <select
+                value={appointment.staffId ?? ''}
+                onChange={(e) => handleAppointmentChange({ staffId: e.target.value || null })}
+                className="text-[11px] font-medium rounded-full focus:outline-none"
+                style={{ background: 'rgba(90,62,43,0.08)', color: '#5A3E2B', border: 'none', padding: '3px 10px' }}
+              >
+                <option value="">担当未設定</option>
+                {staffList?.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              <select
+                value={appointment.duration}
+                onChange={(e) => handleAppointmentChange({ duration: Number(e.target.value) })}
+                className="text-[11px] font-medium rounded-full focus:outline-none"
+                style={{ background: 'rgba(90,62,43,0.08)', color: '#5A3E2B', border: 'none', padding: '3px 10px' }}
+              >
+                {DURATION_OPTIONS.map((d) => (
+                  <option key={d} value={d}>{d}分</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Caution badges */}
           <CautionBadges customer={customer} latestVisit={latestVisit} compact className="mb-3" />

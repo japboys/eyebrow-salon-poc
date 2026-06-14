@@ -2,23 +2,27 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { Customer, VisitRecord, DesignPlan, TodayObservation, TreatmentRecord, Handover, SkinRiskLevel, Staff } from '@/Other/types'
+import { Customer, VisitRecord, DesignPlan, TodayObservation, TreatmentRecord, Handover, SkinRiskLevel, Staff, Appointment, EyebrowTreatmentMark } from '@/Other/types'
 import SectionCard from '@/Front/components/SectionCard'
 import ChipSelector from '@/Front/components/ChipSelector'
-import LevelSelector, { thicknessLabels, densityLabels } from '@/Front/components/LevelSelector'
+import DesignOptionChips from '@/Front/components/DesignOptionChips'
 import CautionBadges, { getCautionInfo } from '@/Front/components/CautionBadges'
 import BeforeAfterPhotos from '@/Front/components/BeforeAfterPhotos'
+import EyebrowMarkAccordion from '@/Front/components/EyebrowMarkAccordion'
 import { hasAnySkinCaution, hasSkinRisk, normalizeSkinRiskLevels, toggleSkinRiskLevel } from '@/Other/lib/skin-risk'
+import { toDateKey } from '@/Other/lib/date'
 
-const DESIGN_OPTIONS = ['平行', '平行アーチ', 'アーチ', 'ストレート', 'ナチュラル', '韓国風', 'お任せ']
-const BROW_CONDITION_TAGS = ['通常', '伸びている', 'まばら', '不揃い', '左右差目立つ']
-const SELF_CARE_AREA_TAGS = ['なし', 'あり', '右眉下', '左眉下', '眉頭', '眉山', '眉尻', '全体']
-const SKIN_CONDITION_TAGS = ['問題なし', '赤み', '乾燥', 'ニキビ', '傷', '皮むけ', '施術注意']
-const TREATMENT_TAGS = ['ワックス', '間引き', 'カット', '毛抜き', '眉山調整', '眉尻調整', 'メイク仕上げ']
+const DESIGN_OPTIONS = ['ナチュラル', '平行', 'アーチ', 'ストレート', '優しく', 'きりっと', '自眉いかす', '左右差近づけ']
+const DESIGN_SUB_OPTIONS: Record<string, string[]> = {
+  '平行': ['山カク', '山ナチュラル'],
+  'ストレート': ['平行め', '角度つける'],
+  'きりっと': ['山カク', '山ナチュラル'],
+}
+const THICKNESS_OPTIONS = ['細く', '少し細く', '太さキープ']
+const DENSITY_OPTIONS = ['キープ', 'cut', 'cut＋間引き']
+const SKIN_CONDITION_TAGS = ['問題なし', '赤み', '乾燥', 'ニキビ', '傷', '皮むけ', '自己処理後あり']
 const EYEBROW_DETAIL_TAGS = ['眉頭調整', '眉山調整', '眉尻調整', '眉下ライン', '眉上ライン', '長さカット']
-const CHANGE_REASON_TAGS = ['顧客希望', 'スタッフ判断', '似合わせ調整', 'その他']
 const SKIN_CAUTION_TAGS = ['赤みが出やすい', '乾燥あり', 'ワックス範囲注意', '一部施術を避ける', '痛みを感じやすい', '施術前に肌状態を再確認']
-const ASYMMETRY_CAUTION_TAGS = ['右眉が高く見えやすい', '左眉が高く見えやすい', '右眉尻が薄い', '左眉尻が薄い', '眉頭の高さ注意', '眉山位置注意', 'メイク補正前提', '次回まで伸ばす']
 const SKIN_RISK_OPTIONS: { value: SkinRiskLevel; label: string }[] = [
   { value: 'ok', label: '問題なし' },
   { value: 'caution', label: '注意' },
@@ -35,21 +39,15 @@ interface FormState {
   visitPolicy: VisitPolicy
   changedFields: string[]
   desiredDesign: string
-  thicknessLevel: number
-  densityLevel: number
-  changeReason: string[]
-  majorChangeReason: string[]
-  customerRequestNote: string
-  browConditionTags: string[]
-  selfCareImpactExists: boolean
-  selfCareImpactArea: string[]
-  selfCareImpactLevel: number
+  designSubOption: string
+  thickness: string
+  density: string
+  designMemo: string
   todaySkinConditionTags: string[]
   todaySkinRiskLevel: SkinRiskLevel[]
   medicationTags: string[]
   medicationOtherNote: string
   observationNote: string
-  treatmentTags: string[]
   rightBrowTreatmentTags: string[]
   leftBrowTreatmentTags: string[]
   customerStance: string
@@ -58,7 +56,7 @@ interface FormState {
   handoverText: string
   staffEditNote: string
   skinCautionTags: string[]
-  asymmetryCautionTags: string[]
+  eyebrowTreatmentMarks: EyebrowTreatmentMark[]
 }
 
 function getDefaultForm(policy: VisitPolicy, profile: Customer['profile']): FormState {
@@ -67,30 +65,24 @@ function getDefaultForm(policy: VisitPolicy, profile: Customer['profile']): Form
     visitPolicy: policy,
     changedFields: [],
     desiredDesign: profile?.defaultDesign ?? '',
-    thicknessLevel: Math.max(-3, Math.min(3, profile?.preferredThickness ?? 0)),
-    densityLevel: Math.max(-3, Math.min(3, profile?.preferredDensity ?? 0)),
-    changeReason: [],
-    majorChangeReason: [],
-    customerRequestNote: '',
-    browConditionTags: [],
-    selfCareImpactExists: false,
-    selfCareImpactArea: [],
-    selfCareImpactLevel: 0,
-    todaySkinConditionTags: [],
+    designSubOption: '',
+    thickness: '太さキープ',
+    density: 'キープ',
+    designMemo: '',
+    todaySkinConditionTags: ['問題なし'],
     todaySkinRiskLevel: ['ok'],
     medicationTags: [],
     medicationOtherNote: '',
     observationNote: '',
-    treatmentTags: [],
     rightBrowTreatmentTags: [],
     leftBrowTreatmentTags: [],
-    customerStance: '',
+    customerStance: '特になし',
     particularNote: '',
     treatmentNote: '',
     handoverText: '',
     staffEditNote: '',
     skinCautionTags: [],
-    asymmetryCautionTags: [],
+    eyebrowTreatmentMarks: [],
   }
 }
 
@@ -104,21 +96,15 @@ function visitToNewForm(visit: VisitRecord, policy: VisitPolicy): FormState {
     visitPolicy: policy,
     changedFields: visit.changedFields ?? [],
     desiredDesign: dp?.desiredDesign ?? '',
-    thicknessLevel: Math.max(-3, Math.min(3, dp?.thicknessLevel ?? 0)),
-    densityLevel: Math.max(-3, Math.min(3, dp?.densityLevel ?? 0)),
-    changeReason: dp?.changeReason ?? [],
-    majorChangeReason: dp?.majorChangeReason ?? [],
-    customerRequestNote: dp?.customerRequestNote ?? '',
-    browConditionTags: to?.browConditionTags ?? [],
-    selfCareImpactExists: to?.selfCareImpactExists ?? false,
-    selfCareImpactArea: to?.selfCareImpactArea ?? [],
-    selfCareImpactLevel: to?.selfCareImpactLevel ?? 0,
+    designSubOption: dp?.designSubOption ?? '',
+    thickness: dp?.thickness ?? '太さキープ',
+    density: dp?.density ?? 'キープ',
+    designMemo: dp?.designMemo ?? '',
     todaySkinConditionTags: to?.todaySkinConditionTags ?? [],
     todaySkinRiskLevel: normalizeSkinRiskLevels(to?.todaySkinRiskLevel),
     medicationTags: to?.medicationTags ?? [],
     medicationOtherNote: to?.medicationOtherNote ?? '',
     observationNote: to?.observationNote ?? '',
-    treatmentTags: tr?.treatmentTags ?? [],
     rightBrowTreatmentTags: tr?.rightBrowTreatmentTags ?? [],
     leftBrowTreatmentTags: tr?.leftBrowTreatmentTags ?? [],
     customerStance: tr?.customerStance ?? '',
@@ -127,7 +113,7 @@ function visitToNewForm(visit: VisitRecord, policy: VisitPolicy): FormState {
     handoverText: h?.handoverText ?? '',
     staffEditNote: h?.staffEditNote ?? '',
     skinCautionTags: h?.skinCautionTags ?? [],
-    asymmetryCautionTags: h?.asymmetryCautionTags ?? [],
+    eyebrowTreatmentMarks: tr?.eyebrowTreatmentMarks ?? [],
   }
 }
 
@@ -165,6 +151,7 @@ export default function NewVisitPage() {
   const [form, setForm] = useState<FormState | null>(null)
   const [prevDesiredDesign, setPrevDesiredDesign] = useState<string | null>(null)
   const [staffList, setStaffList] = useState<Staff[]>([])
+  const [visitNumber, setVisitNumber] = useState<number>(1)
 
   useEffect(() => {
     fetch('/api/staff')
@@ -175,23 +162,36 @@ export default function NewVisitPage() {
 
   useEffect(() => {
     if (!id) return
-    fetch(`/api/customers/${id}`)
-      .then((res) => {
+    const todayKey = toDateKey(new Date())
+    Promise.all([
+      fetch(`/api/customers/${id}`).then((res) => {
         if (!res.ok) throw new Error('顧客データの取得に失敗しました')
-        return res.json()
-      })
-      .then((data: Customer) => {
+        return res.json() as Promise<Customer>
+      }),
+      fetch(`/api/appointments?date=${todayKey}`)
+        .then((res) => (res.ok ? (res.json() as Promise<Appointment[]>) : []))
+        .catch(() => [] as Appointment[]),
+    ])
+      .then(([data, appointments]) => {
         setCustomer(data)
         const draftVisit = draftParam
           ? data.visitRecords?.find((v) => v.treatmentId === draftParam) ?? null
           : null
-        if (draftVisit) {
-          setForm(visitToNewForm(draftVisit, policyParam))
-          setDraftId(draftVisit.treatmentId)
-        } else {
-          setForm(getDefaultForm(policyParam, data.profile))
+        const prevRecord = (data.visitRecords ?? []).find((v) => v.treatmentId !== draftVisit?.treatmentId) ?? null
+        const initialForm = draftVisit
+          ? visitToNewForm(draftVisit, policyParam)
+          : getDefaultForm(policyParam, data.profile)
+        if (!initialForm.staffId) {
+          const matchedAppointment = appointments.find((a) => a.customerId === id && a.staffId)
+          if (matchedAppointment?.staffId) initialForm.staffId = matchedAppointment.staffId
         }
-        const prevRecord = (data.visitRecords ?? []).find((v) => v.treatmentId !== draftVisit?.treatmentId)
+        setForm(initialForm)
+        if (draftVisit) {
+          setDraftId(draftVisit.treatmentId)
+          setVisitNumber(draftVisit.visitNumber)
+        } else {
+          setVisitNumber(data.visitCount + 1)
+        }
         const prevDesign = (prevRecord?.designPlan as DesignPlan | null)?.desiredDesign ?? null
         setPrevDesiredDesign(prevDesign)
         setLoading(false)
@@ -217,17 +217,12 @@ export default function NewVisitPage() {
       changedFields: form.changedFields,
       designPlan: {
         desiredDesign: form.desiredDesign,
-        thicknessLevel: form.thicknessLevel,
-        densityLevel: form.densityLevel,
-        changeReason: form.changeReason,
-        majorChangeReason: form.majorChangeReason,
-        customerRequestNote: form.customerRequestNote,
+        designSubOption: form.designSubOption,
+        thickness: form.thickness,
+        density: form.density,
+        designMemo: form.designMemo,
       },
       todayObservation: {
-        browConditionTags: form.browConditionTags,
-        selfCareImpactExists: form.selfCareImpactExists,
-        selfCareImpactArea: form.selfCareImpactArea,
-        selfCareImpactLevel: form.selfCareImpactLevel,
         todaySkinConditionTags: form.todaySkinConditionTags,
         todaySkinRiskLevel: form.todaySkinRiskLevel,
         medicationTags: form.medicationTags,
@@ -235,18 +230,17 @@ export default function NewVisitPage() {
         observationNote: form.observationNote,
       },
       treatmentRecord: {
-        treatmentTags: form.treatmentTags,
         rightBrowTreatmentTags: form.rightBrowTreatmentTags,
         leftBrowTreatmentTags: form.leftBrowTreatmentTags,
         customerStance: form.customerStance,
         particularNote: form.particularNote,
         treatmentNote: form.treatmentNote,
+        eyebrowTreatmentMarks: form.eyebrowTreatmentMarks,
       },
       handover: {
         handoverText: form.handoverText,
         staffEditNote: form.staffEditNote,
         skinCautionTags: form.skinCautionTags,
-        asymmetryCautionTags: form.asymmetryCautionTags,
       },
       originalObservationMemo: form.observationNote,
     }
@@ -292,6 +286,7 @@ export default function NewVisitPage() {
   const handleSave = async () => {
     if (!form || !customer) return
     setSaving(true)
+    setError(null)
     try {
       const body = buildBody()
       if (!body) return
@@ -385,22 +380,15 @@ export default function NewVisitPage() {
     )
   }
 
-  const profile = customer.profile
   const allVisits: VisitRecord[] = customer.visitRecords ?? []
   const prevVisit = allVisits.find((v) => v.treatmentId !== draftId)
+  const eyebrowMarkTreatmentId = draftId ?? `${id}-${String(visitNumber).padStart(3, '0')}`
   const prevDesignPlan = prevVisit?.designPlan as DesignPlan | null
   const cautions = getCautionInfo(customer, prevVisit ?? null)
 
-  const previousThickness = prevDesignPlan?.thicknessLevel ?? Math.max(-3, Math.min(3, profile?.preferredThickness ?? 0))
-  const previousDensity = prevDesignPlan?.densityLevel ?? Math.max(-3, Math.min(3, profile?.preferredDensity ?? 0))
-  const thicknessDiff = Math.abs(form.thicknessLevel - previousThickness)
-  const densityDiff = Math.abs(form.densityLevel - previousDensity)
-
   const hasSkinCaution = hasAnySkinCaution(form.todaySkinRiskLevel) || form.todaySkinConditionTags.some(t => t !== '問題なし')
-  const hasAsymmetry = form.browConditionTags.includes('左右差目立つ')
 
   const designChanged = prevDesiredDesign !== null && form.desiredDesign !== '' && form.desiredDesign !== prevDesiredDesign
-  const hasLargeDesignChange = designChanged || thicknessDiff >= 2 || densityDiff >= 2
 
   return (
     <div className="min-h-screen bg-background pb-28">
@@ -438,29 +426,22 @@ export default function NewVisitPage() {
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
         {/* Today's date */}
-        <div className="bg-card rounded-2xl border border-border px-5 py-3 flex items-center gap-3">
-          <svg className="w-4 h-4 text-textLight flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <span className="text-sm font-semibold text-text">{getTodayLabel()}</span>
+        <div className="bg-card rounded-2xl border border-border px-5 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <svg className="w-4 h-4 text-textLight flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm font-semibold text-text">{getTodayLabel()}</span>
+          </div>
+          {(() => {
+            const assignedStaffName = staffList.find((s) => s.id === form.staffId)?.name
+            return assignedStaffName ? (
+              <span className="text-xs font-medium px-3 py-1 rounded-full flex-shrink-0" style={{ background: 'rgba(90,62,43,0.08)', color: '#5A3E2B' }}>
+                担当: {assignedStaffName}
+              </span>
+            ) : null
+          })()}
         </div>
-
-        {/* 担当スタッフ */}
-        <SectionCard title="担当スタッフ">
-          <ChipSelector
-            options={staffList.map((s) => s.name)}
-            selected={(() => {
-              const current = staffList.find((s) => s.id === form.staffId)
-              return current ? [current.name] : []
-            })()}
-            onChange={(v) => {
-              const selectedName = v[0] ?? ''
-              const matched = staffList.find((s) => s.name === selectedName)
-              updateForm('staffId', matched?.id ?? '')
-            }}
-            multiSelect={false}
-          />
-        </SectionCard>
 
         {error && (
           <div className="bg-orange-50 border border-warning border-opacity-30 rounded-xl p-3 text-warning text-sm">
@@ -468,31 +449,40 @@ export default function NewVisitPage() {
           </div>
         )}
 
-        {/* 前回のBefore/After比較 */}
-        {prevVisit && (
-          <SectionCard title="前回の仕上がり比較" collapsible defaultOpen>
-            <BeforeAfterPhotos title={undefined} />
-          </SectionCard>
-        )}
+        {/* 今回の仕上がり比較 */}
+        <SectionCard title="今回の仕上がり比較" collapsible defaultOpen>
+          <BeforeAfterPhotos title={undefined} />
+        </SectionCard>
+
+        {/* 施術マーク記録 */}
+        <EyebrowMarkAccordion
+          marks={form.eyebrowTreatmentMarks}
+          onChange={(marks) => updateForm('eyebrowTreatmentMarks', marks)}
+          customerId={id}
+          treatmentId={eyebrowMarkTreatmentId}
+          visitNumber={visitNumber}
+        />
 
         {/* Section 1: Design adjustment */}
         <SectionCard title="デザイン調整" collapsible defaultOpen>
           <div className="space-y-6">
             <div>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <p className="text-sm font-medium text-text">希望デザイン</p>
+                <p className="text-sm font-medium text-text">デザイン</p>
                 {prevDesiredDesign && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-prev text-prevText border border-dashed border-prevText">
                     前回: {prevDesiredDesign}
                   </span>
                 )}
               </div>
-              <ChipSelector
+              <DesignOptionChips
                 options={DESIGN_OPTIONS}
-                selected={form.desiredDesign ? [form.desiredDesign] : []}
-                onChange={(v) => updateForm('desiredDesign', v[0] ?? '')}
-                multiSelect={false}
-                previousValues={prevDesiredDesign ? [prevDesiredDesign] : undefined}
+                subOptionsMap={DESIGN_SUB_OPTIONS}
+                selected={form.desiredDesign}
+                subSelected={form.designSubOption}
+                onChange={(v) => updateForm('desiredDesign', v)}
+                onSubChange={(v) => updateForm('designSubOption', v)}
+                previousValue={prevDesiredDesign || undefined}
               />
               {/* 前回/今回の差分表示 */}
               {designChanged && (
@@ -503,107 +493,45 @@ export default function NewVisitPage() {
               )}
             </div>
 
-            <LevelSelector
-              title="太さ"
-              value={form.thicknessLevel}
-              previousValue={prevDesignPlan?.thicknessLevel ?? (profile ? Math.max(-3, Math.min(3, profile.preferredThickness)) : undefined)}
-              onChange={(v) => updateForm('thicknessLevel', v)}
-              labels={thicknessLabels}
-              minLevel={-3}
-              maxLevel={3}
-            />
+            <div>
+              <p className="text-sm font-medium text-text mb-2">太さ</p>
+              <ChipSelector
+                options={THICKNESS_OPTIONS}
+                selected={form.thickness ? [form.thickness] : []}
+                onChange={(v) => updateForm('thickness', v[0] ?? '')}
+                multiSelect={false}
+                previousValues={prevDesignPlan?.thickness ? [prevDesignPlan.thickness] : undefined}
+              />
+            </div>
 
-            <LevelSelector
-              title="濃さ"
-              value={form.densityLevel}
-              previousValue={prevDesignPlan?.densityLevel ?? Math.max(-3, Math.min(3, profile?.preferredDensity ?? 0))}
-              onChange={(v) => updateForm('densityLevel', v)}
-              labels={densityLabels}
-              minLevel={-3}
-              maxLevel={3}
-            />
+            <div>
+              <p className="text-sm font-medium text-text mb-2">濃さ</p>
+              <ChipSelector
+                options={DENSITY_OPTIONS}
+                selected={form.density ? [form.density] : []}
+                onChange={(v) => updateForm('density', v[0] ?? '')}
+                multiSelect={false}
+                previousValues={prevDesignPlan?.density ? [prevDesignPlan.density] : undefined}
+              />
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-text mb-2">施術メモ</p>
+              <textarea
+                placeholder="デザインに関するメモ（任意）"
+                value={form.designMemo}
+                onChange={(e) => updateForm('designMemo', e.target.value)}
+                className="w-full p-3 rounded-xl border border-border bg-cardAlt text-sm text-text placeholder-muted focus:outline-none focus:border-primary resize-none"
+                rows={2}
+              />
+            </div>
           </div>
         </SectionCard>
 
-        {/* Deep-drill: large design change */}
-        {hasLargeDesignChange && (
-          <SectionCard title="大きな変更理由" collapsible defaultOpen badge="前回差分あり" badgeColor="bg-roseLight text-rose">
-            <ChipSelector
-              options={CHANGE_REASON_TAGS}
-              selected={form.changeReason}
-              onChange={(v) => updateForm('changeReason', v)}
-            />
-            <textarea
-              placeholder="理由メモ（任意）"
-              value={form.customerRequestNote}
-              onChange={(e) => updateForm('customerRequestNote', e.target.value)}
-              className="w-full mt-3 p-3 rounded-xl border border-border bg-cardAlt text-sm text-text placeholder-muted focus:outline-none focus:border-primary resize-none"
-              rows={2}
-            />
-          </SectionCard>
-        )}
-
-        {/* Section 2: お客様眉状態 */}
-        <SectionCard title="お客様眉状態" collapsible defaultOpen>
+        {/* Section 2: お客様状態 */}
+        <SectionCard title="お客様状態" collapsible defaultOpen>
           <div className="space-y-5">
             <div>
-              <p className="text-sm font-medium text-text mb-2">当日の眉状態</p>
-              <ChipSelector
-                options={BROW_CONDITION_TAGS}
-                selected={form.browConditionTags}
-                onChange={(v) => updateForm('browConditionTags', v)}
-              />
-            </div>
-
-            <div>
-              <p className="text-sm font-medium text-text mb-2">自己処理の跡</p>
-              <ChipSelector
-                options={SELF_CARE_AREA_TAGS}
-                selected={form.selfCareImpactArea}
-                onChange={(v) => {
-                  const next = applyExclusiveOption(v, form.selfCareImpactArea, 'なし')
-                  updateForm('selfCareImpactArea', next)
-                  updateForm('selfCareImpactExists', next.length > 0 && !next.includes('なし'))
-                }}
-              />
-            </div>
-
-            {form.selfCareImpactExists && form.selfCareImpactArea.filter(a => a !== 'なし').length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-text mb-2">自己処理の影響レベル</p>
-                <div className="flex gap-2">
-                  {[0, 1, 2, 3].map((level) => (
-                    <button
-                      key={level}
-                      type="button"
-                      onClick={() => updateForm('selfCareImpactLevel', level)}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                        form.selfCareImpactLevel === level
-                          ? 'bg-rose text-white border-rose'
-                          : 'bg-card text-textLight border-border hover:border-rose'
-                      }`}
-                    >
-                      {level === 0 ? '影響なし' : level === 1 ? '軽微' : level === 2 ? '中程度' : '大きい'}
-                    </button>
-                  ))}
-                </div>
-                {form.selfCareImpactLevel >= 2 && (
-                  <div className="mt-3 bg-roseLight rounded-xl p-3">
-                    <p className="text-xs text-rose font-medium">⚠ 仕上がりへの影響を記録してください</p>
-                    <textarea
-                      placeholder="自己処理による仕上がりへの影響"
-                      value={form.observationNote}
-                      onChange={(e) => updateForm('observationNote', e.target.value)}
-                      className="w-full mt-2 p-2 rounded-lg border border-rose border-opacity-30 bg-white text-sm text-text placeholder-muted focus:outline-none resize-none"
-                      rows={2}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div>
-              <p className="text-sm font-medium text-text mb-2">当日の肌状態</p>
               <ChipSelector
                 options={SKIN_CONDITION_TAGS}
                 selected={form.todaySkinConditionTags}
@@ -651,7 +579,7 @@ export default function NewVisitPage() {
               </div>
             )}
 
-            {hasAnySkinCaution(form.todaySkinRiskLevel) && (
+            {hasAnySkinCaution(form.todaySkinRiskLevel) ? (
               <div className="bg-orange-50 rounded-xl p-3 border border-warning border-opacity-30">
                 <p className="text-xs text-warning font-semibold mb-2">⚠ 肌リスクに注意が必要なため対応方針を記録してください</p>
                 <textarea
@@ -662,9 +590,7 @@ export default function NewVisitPage() {
                   rows={3}
                 />
               </div>
-            )}
-
-            {!hasAnySkinCaution(form.todaySkinRiskLevel) && form.selfCareImpactLevel < 2 && (
+            ) : (
               <div>
                 <p className="text-sm font-medium text-text mb-2">観察メモ</p>
                 <textarea
@@ -682,15 +608,6 @@ export default function NewVisitPage() {
         {/* Section 3: Treatment */}
         <SectionCard title="実施施術内容" collapsible defaultOpen>
           <div className="space-y-4">
-            <div>
-              <p className="text-sm font-medium text-text mb-2">施術内容</p>
-              <ChipSelector
-                options={TREATMENT_TAGS}
-                selected={form.treatmentTags}
-                onChange={(v) => updateForm('treatmentTags', v)}
-              />
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-text mb-2">右眉</p>
@@ -753,17 +670,6 @@ export default function NewVisitPage() {
               options={SKIN_CAUTION_TAGS}
               selected={form.skinCautionTags}
               onChange={(v) => updateForm('skinCautionTags', v)}
-            />
-          </SectionCard>
-        )}
-
-        {/* Conditional: Asymmetry caution */}
-        {hasAsymmetry && (
-          <SectionCard title="左右差について次回注意することは？" collapsible defaultOpen badge="左右差目立つ" badgeColor="bg-roseLight text-rose">
-            <ChipSelector
-              options={ASYMMETRY_CAUTION_TAGS}
-              selected={form.asymmetryCautionTags}
-              onChange={(v) => updateForm('asymmetryCautionTags', v)}
             />
           </SectionCard>
         )}

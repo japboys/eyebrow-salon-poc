@@ -1,3 +1,6 @@
+export type { EyebrowSide, MarkerType, EyebrowTreatmentMark } from './eyebrowMark'
+import { EyebrowTreatmentMark } from './eyebrowMark'
+
 export interface Customer {
   id: string
   name: string
@@ -33,7 +36,10 @@ export interface Appointment {
   customerId: string
   date: string
   time: string
+  duration: number
   status: 'scheduled' | 'completed' | 'cancelled'
+  staffId: string | null
+  staffName: string | null
   visitRecordId: string | null
 }
 
@@ -65,20 +71,15 @@ export interface VisitRecord {
 
 export interface DesignPlan {
   desiredDesign: string
-  thicknessLevel: number
-  densityLevel: number
-  changeReason: string[]
-  majorChangeReason: string[]
-  customerRequestNote: string
+  designSubOption?: string
+  thickness: string
+  density: string
+  designMemo?: string
 }
 
 export type SkinRiskLevel = 'ok' | 'caution' | 'medication'
 
 export interface TodayObservation {
-  browConditionTags: string[]
-  selfCareImpactExists: boolean
-  selfCareImpactArea: string[]
-  selfCareImpactLevel: number
   todaySkinConditionTags: string[]
   todaySkinRiskLevel: SkinRiskLevel | SkinRiskLevel[]
   medicationTags: string[]
@@ -87,12 +88,12 @@ export interface TodayObservation {
 }
 
 export interface TreatmentRecord {
-  treatmentTags: string[]
   rightBrowTreatmentTags: string[]
   leftBrowTreatmentTags: string[]
   customerStance: string
   particularNote?: string
   treatmentNote: string
+  eyebrowTreatmentMarks?: EyebrowTreatmentMark[]
 }
 
 export interface Handover {
@@ -101,5 +102,4 @@ export interface Handover {
   aiGeneratedPlaceholderText?: string
   skinCautionTags?: string[]
   nextImprovementTags?: string[]
-  asymmetryCautionTags?: string[]
 }

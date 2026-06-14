@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import CustomerCard from '@/Front/components/CustomerCard'
-import { Appointment, Customer } from '@/Other/types'
+import { Appointment, Customer, Staff } from '@/Other/types'
 import { toDateKey } from '@/Other/lib/date'
 
 function getTodayString() {
@@ -19,17 +20,22 @@ function formatDateLabel(dateKey: string) {
 }
 
 type Tab = 'reserved' | 'completed'
+type SearchScope = 'today' | 'all'
 
 export default function HomePage() {
+  const router = useRouter()
   const todayKey = toDateKey(new Date())
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [staffList, setStaffList] = useState<Staff[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [selectedDate, setSelectedDate] = useState(todayKey)
   const [tab, setTab] = useState<Tab>('reserved')
+  const [staffFilter, setStaffFilter] = useState('')
+  const [searchScope, setSearchScope] = useState<SearchScope>('today')
 
   const isToday = selectedDate === todayKey
 
@@ -50,32 +56,51 @@ export default function HomePage() {
   }, [])
 
   useEffect(() => {
+    fetch('/api/staff')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setStaffList(data))
+      .catch(() => setStaffList([]))
+  }, [])
+
+  useEffect(() => {
     fetch(`/api/appointments?date=${selectedDate}`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setAppointments(data))
       .catch(() => setAppointments([]))
   }, [selectedDate])
 
+  const handleAppointmentUpdate = (updated: Appointment) => {
+    setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
+  }
+
   const customersById = new Map(customers.map((c) => [c.id, c]))
 
-  let entries: { customer: Customer; appointmentTime?: string }[]
+  let entries: { customer: Customer; appointment?: Appointment }[]
 
-  if (isToday) {
+  if (searchScope === 'all') {
+    const appointmentByCustomer = new Map(appointments.map((a) => [a.customerId, a]))
+    entries = customers
+      .map((c) => ({ customer: c, appointment: appointmentByCustomer.get(c.id) }))
+      .sort((a, b) => (a.customer.nameKana ?? a.customer.name).localeCompare(b.customer.nameKana ?? b.customer.name, 'ja'))
+  } else if (isToday) {
     const wantedStatus = tab === 'reserved' ? 'scheduled' : 'completed'
     entries = appointments
       .filter((a) => a.status === wantedStatus)
+      .filter((a) => !staffFilter || a.staffId === staffFilter)
       .slice()
       .sort((a, b) => a.time.localeCompare(b.time))
-      .map((a) => ({ customer: customersById.get(a.customerId), appointmentTime: a.time }))
-      .filter((e): e is { customer: Customer; appointmentTime: string } => !!e.customer)
+      .map((a) => ({ customer: customersById.get(a.customerId), appointment: a }))
+      .filter((e): e is { customer: Customer; appointment: Appointment } => !!e.customer)
   } else {
     const appointmentByCustomer = new Map(appointments.map((a) => [a.customerId, a]))
     entries = customers
-      .map((c) => ({ customer: c, appointmentTime: appointmentByCustomer.get(c.id)?.time }))
+      .map((c) => ({ customer: c, appointment: appointmentByCustomer.get(c.id) }))
       .sort((a, b) => {
-        if (a.appointmentTime && b.appointmentTime) return a.appointmentTime.localeCompare(b.appointmentTime)
-        if (a.appointmentTime) return -1
-        if (b.appointmentTime) return 1
+        const aTime = a.appointment?.time
+        const bTime = b.appointment?.time
+        if (aTime && bTime) return aTime.localeCompare(bTime)
+        if (aTime) return -1
+        if (bTime) return 1
         return (a.customer.nameKana ?? a.customer.name).localeCompare(b.customer.nameKana ?? b.customer.name, 'ja')
       })
   }
@@ -107,8 +132,20 @@ export default function HomePage() {
                 <p className="text-xs text-muted leading-none mt-0.5">本日の予約 / 顧客一覧</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm font-medium text-text">{getTodayString()}</p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/calendar')}
+                className="flex items-center gap-1.5 px-4 font-medium text-sm rounded-xl transition-colors"
+                style={{ height: '44px', background: 'rgba(90,62,43,0.06)', border: '1px solid #E8E0D7', color: '#7B6A5E' }}
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                カレンダー
+              </button>
+              <div className="text-right">
+                <p className="text-sm font-medium text-text">{getTodayString()}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -117,63 +154,114 @@ export default function HomePage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
-        {/* ── Date picker + tabs ── */}
-        <div className="mb-4 flex flex-wrap items-center gap-2.5">
-          <div className="relative">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value || todayKey)}
-              className="bg-card text-text focus:outline-none transition-all"
-              style={{
-                height: '48px',
-                borderRadius: '14px',
-                border: '1.5px solid #E8E0D7',
-                fontSize: '15px',
-                padding: '0 14px',
-                boxShadow: '0 1px 4px rgba(90,62,43,0.05)',
-              }}
-            />
-          </div>
-          {!isToday && (
+        {/* ── 検索範囲切替: 本日 / すべて ── */}
+        <div className="mb-3 flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setSelectedDate(todayKey)}
-              className="px-4 font-medium text-sm rounded-xl transition-colors"
-              style={{ height: '48px', background: 'rgba(90,62,43,0.06)', border: '1px solid #E8E0D7', color: '#7B6A5E' }}
+              onClick={() => setSearchScope('today')}
+              className="px-4 font-semibold text-sm rounded-xl transition-colors"
+              style={
+                searchScope === 'today'
+                  ? { height: '44px', background: '#5A3E2B', color: '#fff' }
+                  : { height: '44px', background: 'rgba(90,62,43,0.06)', border: '1px solid #E8E0D7', color: '#7B6A5E' }
+              }
             >
-              今日に戻る
+              本日
             </button>
-          )}
-
-          {isToday ? (
-            <div className="flex items-center gap-1.5 ml-auto">
-              <button
-                onClick={() => setTab('reserved')}
-                className="px-4 font-semibold text-sm rounded-xl transition-colors"
-                style={
-                  tab === 'reserved'
-                    ? { height: '48px', background: '#5A3E2B', color: '#fff' }
-                    : { height: '48px', background: 'rgba(90,62,43,0.06)', border: '1px solid #E8E0D7', color: '#7B6A5E' }
-                }
-              >
-                予約
-              </button>
-              <button
-                onClick={() => setTab('completed')}
-                className="px-4 font-semibold text-sm rounded-xl transition-colors"
-                style={
-                  tab === 'completed'
-                    ? { height: '48px', background: '#5A3E2B', color: '#fff' }
-                    : { height: '48px', background: 'rgba(90,62,43,0.06)', border: '1px solid #E8E0D7', color: '#7B6A5E' }
-                }
-              >
-                完了
-              </button>
-            </div>
-          ) : (
-            <p className="ml-auto text-sm font-medium text-textLight">{formatDateLabel(selectedDate)}の全顧客</p>
+            <button
+              onClick={() => setSearchScope('all')}
+              className="px-4 font-semibold text-sm rounded-xl transition-colors"
+              style={
+                searchScope === 'all'
+                  ? { height: '44px', background: '#5A3E2B', color: '#fff' }
+                  : { height: '44px', background: 'rgba(90,62,43,0.06)', border: '1px solid #E8E0D7', color: '#7B6A5E' }
+              }
+            >
+              すべて
+            </button>
+          </div>
+          {searchScope === 'all' && (
+            <p className="text-xs text-muted">過去の来店履歴を含む全顧客から検索します</p>
           )}
         </div>
+
+        {/* ── Date picker + tabs ── */}
+        {searchScope === 'today' && (
+          <div className="mb-4 flex flex-wrap items-center gap-2.5">
+            <div className="relative">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value || todayKey)}
+                className="bg-card text-text focus:outline-none transition-all"
+                style={{
+                  height: '48px',
+                  borderRadius: '14px',
+                  border: '1.5px solid #E8E0D7',
+                  fontSize: '15px',
+                  padding: '0 14px',
+                  boxShadow: '0 1px 4px rgba(90,62,43,0.05)',
+                }}
+              />
+            </div>
+            {!isToday && (
+              <button
+                onClick={() => setSelectedDate(todayKey)}
+                className="px-4 font-medium text-sm rounded-xl transition-colors"
+                style={{ height: '48px', background: 'rgba(90,62,43,0.06)', border: '1px solid #E8E0D7', color: '#7B6A5E' }}
+              >
+                今日に戻る
+              </button>
+            )}
+
+            {isToday ? (
+              <div className="flex items-center gap-1.5 ml-auto">
+                <button
+                  onClick={() => setTab('reserved')}
+                  className="px-4 font-semibold text-sm rounded-xl transition-colors"
+                  style={
+                    tab === 'reserved'
+                      ? { height: '48px', background: '#5A3E2B', color: '#fff' }
+                      : { height: '48px', background: 'rgba(90,62,43,0.06)', border: '1px solid #E8E0D7', color: '#7B6A5E' }
+                  }
+                >
+                  予約
+                </button>
+                <button
+                  onClick={() => setTab('completed')}
+                  className="px-4 font-semibold text-sm rounded-xl transition-colors"
+                  style={
+                    tab === 'completed'
+                      ? { height: '48px', background: '#5A3E2B', color: '#fff' }
+                      : { height: '48px', background: 'rgba(90,62,43,0.06)', border: '1px solid #E8E0D7', color: '#7B6A5E' }
+                  }
+                >
+                  完了
+                </button>
+                <select
+                  value={staffFilter}
+                  onChange={(e) => setStaffFilter(e.target.value)}
+                  className="text-text focus:outline-none transition-all"
+                  style={{
+                    height: '48px',
+                    borderRadius: '14px',
+                    border: '1.5px solid #E8E0D7',
+                    fontSize: '14px',
+                    padding: '0 10px',
+                    background: '#fff',
+                  }}
+                >
+                  <option value="">担当: すべて</option>
+                  {staffList.map((s) => (
+                    <option key={s.id} value={s.id}>担当: {s.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <p className="ml-auto text-sm font-medium text-textLight">{formatDateLabel(selectedDate)}の全顧客</p>
+            )}
+          </div>
+        )}
 
         {/* ── Search ── */}
         <div className="mb-6">
@@ -257,9 +345,9 @@ export default function HomePage() {
                 <p className="font-medium text-text">顧客が見つかりません</p>
                 <p className="text-sm mt-1 text-muted">「{search}」に一致する顧客はいません</p>
               </>
-            ) : isToday && tab === 'reserved' ? (
+            ) : searchScope === 'today' && isToday && tab === 'reserved' ? (
               <p className="font-medium text-text">本日の予約はありません</p>
-            ) : isToday && tab === 'completed' ? (
+            ) : searchScope === 'today' && isToday && tab === 'completed' ? (
               <p className="font-medium text-text">本日完了したカルテはまだありません</p>
             ) : (
               <p className="font-medium text-text">顧客が見つかりません</p>
@@ -270,11 +358,13 @@ export default function HomePage() {
         {/* ── Customer grid ── */}
         {!loading && !error && filtered.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filtered.map(({ customer, appointmentTime }) => (
+            {filtered.map(({ customer, appointment }) => (
               <CustomerCard
                 key={customer.id}
                 customer={customer}
-                appointmentTime={appointmentTime}
+                appointment={appointment}
+                staffList={staffList}
+                onAppointmentUpdate={handleAppointmentUpdate}
                 onCustomerUpdate={(updated) => {
                   setCustomers((prev) =>
                     prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))

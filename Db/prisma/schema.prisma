@@ -71,7 +71,10 @@ model VisitRecord {
 model Staff {
   id           String        @id
   name         String
+  // 新規/指名なし客のローテーション割当で、直前に重複のため見送られた場合に true（次回優先）
+  skipPriority Boolean       @default(false)
   visitRecords VisitRecord[]
+  appointments Appointment[]
   createdAt    DateTime      @default(now())
 }
 
@@ -81,7 +84,10 @@ model Appointment {
   customer      Customer @relation(fields: [customerId], references: [id])
   date          String   // "YYYY-MM-DD"
   time          String   // "HH:MM"
+  duration      Int      @default(40) // 施術時間（分）
   status        String   @default("scheduled") // 'scheduled' | 'completed' | 'cancelled'
+  staffId       String?
+  staff         Staff?   @relation(fields: [staffId], references: [id])
   visitRecordId String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
