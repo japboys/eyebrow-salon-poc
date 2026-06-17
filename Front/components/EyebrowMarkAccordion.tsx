@@ -9,6 +9,8 @@ import { EyebrowTreatmentMark, EyebrowSide, MarkerType } from '@/Other/types/eye
 interface EyebrowMarkAccordionProps {
   marks: EyebrowTreatmentMark[]
   onChange: (marks: EyebrowTreatmentMark[]) => void
+  markMemo?: string
+  onMarkMemoChange?: (memo: string) => void
   customerId: string
   treatmentId: string
   visitNumber: number
@@ -23,6 +25,8 @@ function getDraftKey(customerId: string, treatmentId: string, visitNumber: numbe
 export default function EyebrowMarkAccordion({
   marks,
   onChange,
+  markMemo = '',
+  onMarkMemoChange,
   customerId,
   treatmentId,
   visitNumber,
@@ -115,6 +119,25 @@ export default function EyebrowMarkAccordion({
           />
         )}
         <EyebrowMarkCanvas marks={marks} onAddMark={handleAddMark} readOnly={readOnly} />
+
+        {/* 施術マークメモ */}
+        {!readOnly ? (
+          <div>
+            <p className="text-xs font-medium text-text mb-1.5">マーク記録メモ</p>
+            <textarea
+              placeholder="施術マークに関するメモ（任意）"
+              value={markMemo}
+              onChange={(e) => onMarkMemoChange?.(e.target.value)}
+              className="w-full p-3 rounded-xl border border-border bg-cardAlt text-sm text-text placeholder-muted focus:outline-none focus:border-primary resize-none"
+              rows={2}
+            />
+          </div>
+        ) : markMemo ? (
+          <div className="bg-cardAlt rounded-xl p-3">
+            <p className="text-xs font-medium text-text mb-1">マーク記録メモ</p>
+            <p className="text-sm text-textLight">{markMemo}</p>
+          </div>
+        ) : null}
       </div>
     </SectionCard>
   )

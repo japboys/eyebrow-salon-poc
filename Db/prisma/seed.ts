@@ -119,6 +119,7 @@ async function main() {
       id: 'CUST002',
       name: '田中 彩花',
       nameKana: 'たなか あやか',
+      bookingName: 'たなか あやか',
       age: 24,
       phone: '090-1234-5602',
       email: 'tanaka.ayaka@example.com',
@@ -225,6 +226,7 @@ async function main() {
       id: 'CUST004',
       name: '高橋 由衣',
       nameKana: 'たかはし ゆい',
+      bookingName: 'タカハシ ユイ',
       age: 35,
       phone: '090-1234-5604',
       email: 'takahashi.yui@example.com',
@@ -460,13 +462,13 @@ async function main() {
 
   await prisma.appointment.createMany({
     data: [
-      { customerId: 'CUST001', date: today, time: '10:00', status: 'scheduled', staffId: 'STAFF001' },
-      { customerId: 'CUST002', date: today, time: '11:30', status: 'scheduled', staffId: 'STAFF002' },
-      { customerId: 'CUST003', date: today, time: '13:00', status: 'scheduled', staffId: 'STAFF003', duration: 60 },
-      { customerId: 'CUST004', date: today, time: '14:30', status: 'scheduled', staffId: 'STAFF004' },
-      { customerId: 'CUST005', date: today, time: '16:00', status: 'scheduled', staffId: 'STAFF001' },
-      { customerId: 'CUST002', date: tomorrow, time: '09:30', status: 'scheduled', staffId: 'STAFF002' },
-      { customerId: 'CUST004', date: tomorrow, time: '15:00', status: 'scheduled', staffId: 'STAFF003' },
+      { customerId: 'CUST001', date: today, time: '10:00', duration: 40, status: 'scheduled', staffId: 'STAFF001' },
+      { customerId: 'CUST002', date: today, time: '11:30', duration: 50, status: 'scheduled', staffId: 'STAFF002' },
+      { customerId: 'CUST003', date: today, time: '13:00', duration: 60, status: 'scheduled', staffId: 'STAFF003' },
+      { customerId: 'CUST004', date: today, time: '14:30', duration: 30, status: 'scheduled', staffId: 'STAFF004' },
+      { customerId: 'CUST005', date: today, time: '16:00', duration: 40, status: 'scheduled', staffId: 'STAFF001' },
+      { customerId: 'CUST002', date: tomorrow, time: '09:30', duration: 50, status: 'scheduled', staffId: 'STAFF002' },
+      { customerId: 'CUST004', date: tomorrow, time: '15:00', duration: 30, status: 'scheduled', staffId: 'STAFF003' },
     ],
   })
 

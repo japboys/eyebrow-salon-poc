@@ -12,18 +12,17 @@ import CautionBadges, { getCautionInfo } from '@/Front/components/CautionBadges'
 import BeforeAfterPhotos from '@/Front/components/BeforeAfterPhotos'
 import StructuredBriefingPanel from '@/Front/components/StructuredBriefingPanel'
 import EyebrowMarkAccordion from '@/Front/components/EyebrowMarkAccordion'
-import { normalizeSkinRiskLevels, toggleSkinRiskLevel } from '@/Other/lib/skin-risk'
+import { hasAnySkinCaution, hasSkinRisk, normalizeSkinRiskLevels, toggleSkinRiskLevel } from '@/Other/lib/skin-risk'
 
-const DESIGN_OPTIONS = ['ナチュラル', '平行', 'アーチ', 'ストレート', '優しく', 'きりっと', '自眉いかす', '左右差近づけ']
+const DESIGN_OPTIONS = ['ナチュラル', '平行', 'アーチ', 'ストレート', '優しく', 'きりっと', '自眉いかす', '左右差近づけ', 'モード']
 const DESIGN_SUB_OPTIONS: Record<string, string[]> = {
   '平行': ['山カク', '山ナチュラル'],
   'ストレート': ['平行め', '角度つける'],
   'きりっと': ['山カク', '山ナチュラル'],
 }
 const THICKNESS_OPTIONS = ['細く', '少し細く', '太さキープ']
-const DENSITY_OPTIONS = ['キープ', 'cut', 'cut＋間引き']
-const SKIN_CONDITION_TAGS = ['問題なし', '赤み', '乾燥', 'ニキビ', '傷', '皮むけ', '自己処理後あり']
-const EYEBROW_DETAIL_TAGS = ['眉頭調整', '眉山調整', '眉尻調整', '眉下ライン', '眉上ライン', '長さカット']
+const DENSITY_OPTIONS = ['少し薄く', '薄く', '状態キープ', 'カット']
+const SKIN_CONDITION_TAGS = ['問題なし', '赤み', '乾燥', 'ニキビ', '傷', '皮むけ', '自己処理あり', '日焼け']
 const SKIN_RISK_OPTIONS: { value: SkinRiskLevel; label: string }[] = [
   { value: 'ok', label: '問題なし' },
   { value: 'caution', label: '注意' },
@@ -32,28 +31,52 @@ const SKIN_RISK_OPTIONS: { value: SkinRiskLevel; label: string }[] = [
 const MEDICATION_TAGS = ['アトピー', 'ニキビ用']
 const MEDICATION_OTHER = 'その他'
 const CUSTOMER_STANCE_OPTIONS = ['こだわり強い', 'お任せ', '特になし']
+const PERMA_MEDICATION_OPTIONS = ['ハード', 'ミディアム']
+const PERMA_TIME_OPTIONS = ['5', '10', '15', 'カスタム']
 
 interface FormState {
-  desiredDesign: string
-  designSubOption: string
+  desiredDesign: string[]
+  designSubOptions: Record<string, string>
   thickness: string
   density: string
   designMemo: string
+  eyebrowMarkMemo: string
+  customerStance: string
+  particularNote: string
+  permaEnabled: boolean
+  permaMedication: string
+  permaTime: string
+  permaCustomTime: number
   todaySkinConditionTags: string[]
   todaySkinRiskLevel: SkinRiskLevel[]
   medicationTags: string[]
   medicationOtherNote: string
   observationNote: string
-  rightBrowTreatmentTags: string[]
-  leftBrowTreatmentTags: string[]
-  customerStance: string
-  particularNote: string
-  treatmentNote: string
+  staffEditedHandover: string
   handoverText: string
   staffEditNote: string
-  staffEditedHandover: string
+  staffEditNoteImportant: boolean
   skinCautionTags: string[]
   eyebrowTreatmentMarks: EyebrowTreatmentMark[]
+}
+
+function normalizeDesiredDesign(val: string | string[] | null | undefined): string[] {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  return [val]
+}
+
+function normalizeDesignSubOptions(
+  subOptions: Record<string, string> | null | undefined,
+  legacySubOption: string | undefined,
+  legacyDesign: string | string[] | undefined,
+): Record<string, string> {
+  if (subOptions && Object.keys(subOptions).length > 0) return subOptions
+  if (legacySubOption && legacyDesign) {
+    const design = Array.isArray(legacyDesign) ? legacyDesign[0] : legacyDesign
+    if (design) return { [design]: legacySubOption }
+  }
+  return {}
 }
 
 function getDisplayObservationNote(visit: VisitRecord): string {
@@ -61,29 +84,40 @@ function getDisplayObservationNote(visit: VisitRecord): string {
 }
 
 function visitToForm(visit: VisitRecord): FormState {
-  const dp = visit.designPlan as DesignPlan | null
+  const dp = visit.designPlan as (DesignPlan & {
+    designSubOptions?: Record<string, string>
+    customerStance?: string
+    particularNote?: string
+    permaEnabled?: boolean
+    permaMedication?: string
+    permaTime?: string
+    permaCustomTime?: number
+  }) | null
   const to = visit.todayObservation as TodayObservation | null
-  const tr = visit.treatmentRecord as TreatmentRecord | null
-  const h = visit.handover as Handover | null
+  const tr = visit.treatmentRecord as (TreatmentRecord & { eyebrowMarkMemo?: string }) | null
+  const h = visit.handover as (Handover & { staffEditNoteImportant?: boolean }) | null
   return {
-    desiredDesign: dp?.desiredDesign ?? '',
-    designSubOption: dp?.designSubOption ?? '',
+    desiredDesign: normalizeDesiredDesign(dp?.desiredDesign),
+    designSubOptions: normalizeDesignSubOptions(dp?.designSubOptions, dp?.designSubOption, dp?.desiredDesign),
     thickness: dp?.thickness ?? '太さキープ',
-    density: dp?.density ?? 'キープ',
+    density: dp?.density ?? '状態キープ',
     designMemo: dp?.designMemo ?? '',
+    eyebrowMarkMemo: tr?.eyebrowMarkMemo ?? '',
+    customerStance: dp?.customerStance ?? tr?.customerStance ?? '',
+    particularNote: dp?.particularNote ?? tr?.particularNote ?? '',
+    permaEnabled: dp?.permaEnabled ?? false,
+    permaMedication: dp?.permaMedication ?? '',
+    permaTime: dp?.permaTime ?? '',
+    permaCustomTime: dp?.permaCustomTime ?? 5,
     todaySkinConditionTags: to?.todaySkinConditionTags ?? [],
     todaySkinRiskLevel: normalizeSkinRiskLevels(to?.todaySkinRiskLevel),
     medicationTags: to?.medicationTags ?? [],
     medicationOtherNote: to?.medicationOtherNote ?? '',
     observationNote: getDisplayObservationNote(visit),
-    rightBrowTreatmentTags: tr?.rightBrowTreatmentTags ?? [],
-    leftBrowTreatmentTags: tr?.leftBrowTreatmentTags ?? [],
-    customerStance: tr?.customerStance ?? '',
-    particularNote: tr?.particularNote ?? '',
-    treatmentNote: tr?.treatmentNote ?? '',
+    staffEditedHandover: visit.staffEditedHandover ?? '',
     handoverText: h?.handoverText ?? '',
     staffEditNote: h?.staffEditNote ?? '',
-    staffEditedHandover: visit.staffEditedHandover ?? '',
+    staffEditNoteImportant: h?.staffEditNoteImportant ?? false,
     skinCautionTags: h?.skinCautionTags ?? [],
     eyebrowTreatmentMarks: tr?.eyebrowTreatmentMarks ?? [],
   }
@@ -134,7 +168,6 @@ export default function VisitDetailPage() {
         setVisit(found)
         if (found) {
           setForm(visitToForm(found))
-          // draft状態のカルテは自動的に編集モードで開く
           if (found.visitPolicy === 'draft') setIsEditing(true)
         }
         setLoading(false)
@@ -170,14 +203,21 @@ export default function VisitDetailPage() {
   const handleSave = async () => {
     if (!form) return
     setSaving(true)
+    setError(null)
     try {
       const body = {
         designPlan: {
           desiredDesign: form.desiredDesign,
-          designSubOption: form.designSubOption,
+          designSubOptions: form.designSubOptions,
           thickness: form.thickness,
           density: form.density,
           designMemo: form.designMemo,
+          customerStance: form.customerStance,
+          particularNote: form.particularNote,
+          permaEnabled: form.permaEnabled,
+          permaMedication: form.permaMedication,
+          permaTime: form.permaTime,
+          permaCustomTime: form.permaCustomTime,
         },
         todayObservation: {
           todaySkinConditionTags: form.todaySkinConditionTags,
@@ -187,21 +227,21 @@ export default function VisitDetailPage() {
           observationNote: form.observationNote,
         },
         treatmentRecord: {
-          rightBrowTreatmentTags: form.rightBrowTreatmentTags,
-          leftBrowTreatmentTags: form.leftBrowTreatmentTags,
+          rightBrowTreatmentTags: [],
+          leftBrowTreatmentTags: [],
           customerStance: form.customerStance,
           particularNote: form.particularNote,
-          treatmentNote: form.treatmentNote,
+          treatmentNote: '',
           eyebrowTreatmentMarks: form.eyebrowTreatmentMarks,
+          eyebrowMarkMemo: form.eyebrowMarkMemo,
         },
         handover: {
           handoverText: form.handoverText,
           staffEditNote: form.staffEditNote,
+          staffEditNoteImportant: form.staffEditNoteImportant,
           skinCautionTags: form.skinCautionTags,
         },
-        // 編集時の観察メモはstaffEditedHandoverに保存（originalObservationMemoは保護）
         staffEditedHandover: form.staffEditedHandover || form.observationNote || undefined,
-        // draftから本保存する場合はvisitPolicyを確定（PUT APIがvisitCountをインクリメント）
         ...(visit?.visitPolicy === 'draft' && { visitPolicy: 'partial_change' }),
       }
 
@@ -242,6 +282,7 @@ export default function VisitDetailPage() {
   }
 
   const visitCautions = getCautionInfo(customer, visit)
+  const hasSkinCaution = hasAnySkinCaution(form.todaySkinRiskLevel) || form.todaySkinConditionTags.some(t => t !== '問題なし')
 
   return (
     <div className="min-h-screen bg-background pb-28">
@@ -290,7 +331,6 @@ export default function VisitDetailPage() {
         <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent opacity-25" />
       </header>
 
-      {/* 要注意顧客の表示（ヘッダー直下に固定表示） */}
       {visitCautions.length > 0 && (
         <div className="px-4 py-2.5" style={{ background: '#F8F3EE', borderBottom: '1px solid #E8E0D7' }}>
           <div className="max-w-3xl mx-auto">
@@ -304,6 +344,8 @@ export default function VisitDetailPage() {
         <EyebrowMarkAccordion
           marks={form.eyebrowTreatmentMarks}
           onChange={(marks) => updateForm('eyebrowTreatmentMarks', marks)}
+          markMemo={form.eyebrowMarkMemo}
+          onMarkMemoChange={(memo) => updateForm('eyebrowMarkMemo', memo)}
           customerId={customerId}
           treatmentId={visit.treatmentId}
           visitNumber={visit.visitNumber}
@@ -338,7 +380,6 @@ export default function VisitDetailPage() {
         >
           <div className="space-y-4">
             <StructuredBriefingPanel customer={customer} visit={visit} />
-
             <BeforeAfterPhotos title="今回の施術写真" />
           </div>
         </SectionCard>
@@ -348,7 +389,7 @@ export default function VisitDetailPage() {
           <ProfileSection profile={customer.profile} />
         </SectionCard>
 
-        {/* デバッグ用JSONデータ — ?debug=true のときのみ表示 */}
+        {/* デバッグ用JSONデータ */}
         {isDebug && !isEditing && (
           <SectionCard title="データ確認（JSON）[DEBUG]" collapsible defaultOpen={false}>
             <details>
@@ -387,7 +428,7 @@ export default function VisitDetailPage() {
               <p className="text-sm font-semibold text-primary">編集モード — 変更後に「保存する」を押してください</p>
             </div>
 
-            {/* Design adjustment */}
+            {/* デザイン調整 */}
             <SectionCard title="デザイン調整" collapsible defaultOpen>
               <div className="space-y-6">
                 <div>
@@ -396,11 +437,12 @@ export default function VisitDetailPage() {
                     options={DESIGN_OPTIONS}
                     subOptionsMap={DESIGN_SUB_OPTIONS}
                     selected={form.desiredDesign}
-                    subSelected={form.designSubOption}
+                    subSelected={form.designSubOptions}
                     onChange={(v) => updateForm('desiredDesign', v)}
-                    onSubChange={(v) => updateForm('designSubOption', v)}
+                    onSubChange={(v) => updateForm('designSubOptions', v)}
                   />
                 </div>
+
                 <div>
                   <p className="text-sm font-medium text-text mb-2">太さ</p>
                   <ChipSelector
@@ -410,6 +452,7 @@ export default function VisitDetailPage() {
                     multiSelect={false}
                   />
                 </div>
+
                 <div>
                   <p className="text-sm font-medium text-text mb-2">濃さ</p>
                   <ChipSelector
@@ -419,6 +462,110 @@ export default function VisitDetailPage() {
                     multiSelect={false}
                   />
                 </div>
+
+                {/* お客様の施術方針・こだわり */}
+                <div>
+                  <p className="text-sm font-medium text-text mb-2">お客様の施術方針・こだわり</p>
+                  <ChipSelector
+                    options={CUSTOMER_STANCE_OPTIONS}
+                    selected={form.customerStance ? [form.customerStance] : []}
+                    onChange={(v) => updateForm('customerStance', v[0] ?? '')}
+                    multiSelect={false}
+                  />
+                </div>
+                {form.customerStance === 'こだわり強い' && (
+                  <div className="bg-roseLight rounded-xl p-3 border border-rose border-opacity-20">
+                    <p className="text-xs text-rose font-semibold mb-2">今回とくに確認したこだわり</p>
+                    <textarea
+                      value={form.particularNote}
+                      onChange={(e) => updateForm('particularNote', e.target.value)}
+                      className="w-full p-2 rounded-lg border border-rose border-opacity-30 bg-white text-sm text-text focus:outline-none resize-none"
+                      rows={2}
+                      placeholder="例：太さは残す、眉山は強調しない、左右差を目立たせない"
+                    />
+                  </div>
+                )}
+
+                {/* 施術内容: パーマ */}
+                <div>
+                  <p className="text-sm font-medium text-text mb-2">施術内容</p>
+                  <button
+                    type="button"
+                    onClick={() => updateForm('permaEnabled', !form.permaEnabled)}
+                    className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
+                      form.permaEnabled
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-card text-textLight border-border hover:border-primary'
+                    }`}
+                  >
+                    パーマ
+                  </button>
+                  {form.permaEnabled && (
+                    <div className="mt-3 space-y-4 bg-cardAlt rounded-xl p-4 border border-border">
+                      <div>
+                        <p className="text-xs font-medium text-text mb-2">薬剤</p>
+                        <div className="flex gap-2">
+                          {PERMA_MEDICATION_OPTIONS.map((opt) => (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => updateForm('permaMedication', form.permaMedication === opt ? '' : opt)}
+                              className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-all ${
+                                form.permaMedication === opt
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'bg-card text-textLight border-border hover:border-primary'
+                              }`}
+                            >
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-text mb-2">時間</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {PERMA_TIME_OPTIONS.map((opt) => (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => updateForm('permaTime', form.permaTime === opt ? '' : opt)}
+                              className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 transition-all ${
+                                form.permaTime === opt
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'bg-card text-textLight border-border hover:border-primary'
+                              }`}
+                            >
+                              {opt === 'カスタム' ? opt : `${opt}分`}
+                            </button>
+                          ))}
+                        </div>
+                        {form.permaTime === 'カスタム' && (
+                          <div className="mt-3">
+                            <p className="text-xs text-muted mb-2">時間を選択（3〜15分）</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {Array.from({ length: 13 }, (_, i) => i + 3).map((min) => (
+                                <button
+                                  key={min}
+                                  type="button"
+                                  onClick={() => updateForm('permaCustomTime', min)}
+                                  className={`w-10 h-9 rounded-lg text-xs font-semibold border transition-all ${
+                                    form.permaCustomTime === min
+                                      ? 'bg-primary text-white border-primary'
+                                      : 'bg-card text-textLight border-border hover:border-primary'
+                                  }`}
+                                >
+                                  {min}
+                                </button>
+                              ))}
+                            </div>
+                            <p className="text-xs text-primary font-medium mt-2">選択中: {form.permaCustomTime}分</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <p className="text-sm font-medium text-text mb-2">施術メモ</p>
                   <textarea
@@ -461,7 +608,7 @@ export default function VisitDetailPage() {
                     ))}
                   </div>
                 </div>
-                {form.todaySkinRiskLevel.includes('medication') && (
+                {hasSkinRisk(form.todaySkinRiskLevel, 'medication') && (
                   <div className="bg-orange-50 rounded-xl p-3 border border-warning border-opacity-30 space-y-3">
                     <p className="text-xs text-warning font-semibold">薬の用途（複数選択可）</p>
                     <ChipSelector
@@ -498,61 +645,18 @@ export default function VisitDetailPage() {
               </div>
             </SectionCard>
 
-            {/* Treatment */}
-            <SectionCard title="実施施術内容" collapsible defaultOpen>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-text mb-2">右眉</p>
-                    <ChipSelector
-                      options={EYEBROW_DETAIL_TAGS}
-                      selected={form.rightBrowTreatmentTags}
-                      onChange={(v) => updateForm('rightBrowTreatmentTags', v)}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-text mb-2">左眉</p>
-                    <ChipSelector
-                      options={EYEBROW_DETAIL_TAGS}
-                      selected={form.leftBrowTreatmentTags}
-                      onChange={(v) => updateForm('leftBrowTreatmentTags', v)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-text mb-2">お客様の施術方針・こだわり</p>
-                  <ChipSelector
-                    options={CUSTOMER_STANCE_OPTIONS}
-                    selected={form.customerStance ? [form.customerStance] : []}
-                    onChange={(v) => updateForm('customerStance', v[0] ?? '')}
-                    multiSelect={false}
-                  />
-                </div>
-                {form.customerStance === 'こだわり強い' && (
-                  <div className="bg-roseLight rounded-xl p-3 border border-rose border-opacity-20">
-                    <p className="text-xs text-rose font-semibold mb-2">今回とくに確認したこだわり</p>
-                    <textarea
-                      value={form.particularNote}
-                      onChange={(e) => updateForm('particularNote', e.target.value)}
-                      className="w-full p-2 rounded-lg border border-rose border-opacity-30 bg-white text-sm text-text focus:outline-none resize-none"
-                      rows={2}
-                      placeholder="例：太さは残す、眉山は強調しない、左右差を目立たせない"
-                    />
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium text-text mb-2">施術メモ</p>
-                  <textarea
-                    value={form.treatmentNote}
-                    onChange={(e) => updateForm('treatmentNote', e.target.value)}
-                    className="w-full p-3 rounded-xl border border-border bg-cardAlt text-sm text-text focus:outline-none focus:border-primary resize-none"
-                    rows={3}
-                  />
-                </div>
-              </div>
-            </SectionCard>
+            {/* 肌状態注意（スキン警告がある場合のみ） */}
+            {hasSkinCaution && (
+              <SectionCard title="次回スタッフへの肌注意は？" collapsible defaultOpen badge="肌状態注意" badgeColor="bg-orange-50 text-warning">
+                <ChipSelector
+                  options={['赤みが出やすい', '乾燥あり', 'ワックス範囲注意', '一部施術を避ける', '痛みを感じやすい', '施術前に肌状態を再確認']}
+                  selected={form.skinCautionTags}
+                  onChange={(v) => updateForm('skinCautionTags', v)}
+                />
+              </SectionCard>
+            )}
 
-            {/* Handover */}
+            {/* 会話・次回共有メモ */}
             <SectionCard title="会話・次回共有メモ" collapsible defaultOpen>
               <div className="space-y-4">
                 <div>
@@ -569,14 +673,40 @@ export default function VisitDetailPage() {
                   />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-text mb-1">スタッフ内部メモ</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-sm font-medium text-text">スタッフ内部メモ</p>
+                    <button
+                      type="button"
+                      onClick={() => updateForm('staffEditNoteImportant', !form.staffEditNoteImportant)}
+                      className="flex items-center gap-1 text-xs font-medium transition-colors"
+                      title="重要フラグ"
+                    >
+                      {form.staffEditNoteImportant ? (
+                        <svg className="w-5 h-5 text-warning" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                      )}
+                    </button>
+                    {form.staffEditNoteImportant && (
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium"
+                        style={{ background: 'rgba(203,111,81,0.12)', color: '#CB6F51' }}>重要</span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted mb-2">
                     領収書など特殊対応がある時だけ。基本は空欄でOK。
                   </p>
                   <textarea
                     value={form.staffEditNote}
                     onChange={(e) => updateForm('staffEditNote', e.target.value)}
-                    className="w-full p-3 rounded-xl border border-border bg-cardAlt text-sm text-text focus:outline-none focus:border-primary resize-none"
+                    className={`w-full p-3 rounded-xl border text-sm text-text placeholder-muted focus:outline-none resize-none ${
+                      form.staffEditNoteImportant
+                        ? 'border-warning border-opacity-50 bg-orange-50'
+                        : 'border-border bg-cardAlt focus:border-primary'
+                    }`}
                     rows={2}
                     placeholder="例：領収書発行あり。"
                   />

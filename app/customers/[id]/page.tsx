@@ -5,10 +5,10 @@ import { useRouter, useParams } from 'next/navigation'
 import { Customer, VisitRecord, Handover, DesignPlan, TreatmentRecord } from '@/Other/types'
 import SectionCard from '@/Front/components/SectionCard'
 import CautionBadges from '@/Front/components/CautionBadges'
-import BeforeAfterPhotos from '@/Front/components/BeforeAfterPhotos'
+import SurveyContent, { DUMMY_SURVEY } from '@/Front/components/SurveyContent'
 import StructuredBriefingPanel from '@/Front/components/StructuredBriefingPanel'
 import EyebrowMarkAccordion from '@/Front/components/EyebrowMarkAccordion'
-import SurveyContent, { DUMMY_SURVEY } from '@/Front/components/SurveyContent'
+import { EyebrowTreatmentMark } from '@/Other/types/eyebrowMark'
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return 'なし'
@@ -111,7 +111,7 @@ export default function CustomerDetailPage() {
       <main className="max-w-3xl mx-auto px-4 py-5 space-y-4">
         {/* ── Summary card ── */}
         <div className="bg-card rounded-2xl p-5" style={{ border: '1px solid #E8E0D7', boxShadow: '0 1px 4px rgba(90,62,43,0.06), 0 4px 16px rgba(90,62,43,0.06)' }}>
-          <div className="flex items-start justify-between flex-wrap gap-3">
+          <div className="flex items-start flex-wrap gap-3">
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <h2 className="font-serif text-2xl font-semibold text-text">{customer.name}</h2>
@@ -143,52 +143,11 @@ export default function CustomerDetailPage() {
                 前回来店: <span className="text-text font-medium">{formatDate(customer.lastVisitDate)}</span>
               </p>
             </div>
-            <button
-              onClick={() => router.push(`/customers/${id}/edit`)}
-              className="px-4 py-2 text-primary text-sm font-medium rounded-xl transition-colors"
-              style={{ background: '#F8F3EE', border: '1px solid #E8E0D7' }}
-            >
-              情報を編集
-            </button>
           </div>
         </div>
 
         {/* 要注意顧客の警告エリア */}
         <CautionBadges customer={customer} latestVisit={summaryVisit} />
-
-        {/* 前回のBefore/After写真 */}
-        {summaryVisit && (
-          <div className="bg-card rounded-2xl p-5" style={{ border: '1px solid #E8E0D7', boxShadow: '0 1px 4px rgba(90,62,43,0.05)' }}>
-            <BeforeAfterPhotos />
-          </div>
-        )}
-
-        {/* 前回の施術マーク記録 */}
-        {summaryVisit && (
-          <EyebrowMarkAccordion
-            marks={(summaryVisit.treatmentRecord as TreatmentRecord | null)?.eyebrowTreatmentMarks ?? []}
-            onChange={() => {}}
-            customerId={id}
-            treatmentId={summaryVisit.treatmentId}
-            visitNumber={summaryVisit.visitNumber}
-            readOnly
-          />
-        )}
-
-        {/* 前回施術サマリー */}
-        {summaryVisit && (
-          <SectionCard
-            title="前回施術サマリー"
-            collapsible
-            defaultOpen
-            badge={`第${summaryVisit.visitNumber}回 ${formatDate(summaryVisit.visitDate)}`}
-            badgeColor="bg-prev text-prevText"
-          >
-            <div className="space-y-4">
-              <StructuredBriefingPanel customer={customer} visit={summaryVisit} />
-            </div>
-          </SectionCard>
-        )}
 
         {/* 事前アンケート（お客様情報枠の代替） */}
         <SectionCard
@@ -209,6 +168,39 @@ export default function CustomerDetailPage() {
           </div>
           <SurveyContent />
         </SectionCard>
+
+        {/* 前回カルテの施術マーク記録 */}
+        {summaryVisit && (
+          <EyebrowMarkAccordion
+            marks={((summaryVisit.treatmentRecord as TreatmentRecord | null)?.eyebrowTreatmentMarks as EyebrowTreatmentMark[] | undefined) ?? []}
+            onChange={() => {}}
+            customerId={customer.id}
+            treatmentId={summaryVisit.treatmentId}
+            visitNumber={summaryVisit.visitNumber}
+            readOnly
+            defaultOpen={false}
+          />
+        )}
+
+        {/* 前回カルテのブリーフィング */}
+        {summaryVisit && (
+          <SectionCard
+            title={`前回カルテ（第${summaryVisit.visitNumber}回 / ${formatDate(summaryVisit.visitDate)}${summaryVisit.staffName ? ` / 担当: ${summaryVisit.staffName}` : ''}）`}
+            collapsible
+            defaultOpen
+          >
+            <StructuredBriefingPanel customer={customer} visit={summaryVisit} />
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F0EAE4' }}>
+              <button
+                onClick={() => router.push(`/customers/${id}/visit/${summaryVisit.treatmentId}`)}
+                className="w-full flex items-center justify-center gap-1.5 text-xs font-medium py-2 rounded-xl transition-colors"
+                style={{ background: 'rgba(90,62,43,0.05)', border: '1px solid #E8E0D7', color: '#7B6A5E' }}
+              >
+                カルテ詳細を見る →
+              </button>
+            </div>
+          </SectionCard>
+        )}
 
         {/* 本日のカルテ作成 */}
         <SectionCard title="本日のカルテ作成" defaultOpen>

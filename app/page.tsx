@@ -110,6 +110,7 @@ export default function HomePage() {
     return (
       customer.name.includes(search) ||
       (customer.nameKana?.includes(search) ?? false) ||
+      (customer.bookingName?.includes(search) ?? false) ||
       (customer.profile?.defaultDesign?.includes(search) ?? false)
     )
   })

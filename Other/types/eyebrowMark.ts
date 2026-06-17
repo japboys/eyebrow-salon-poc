@@ -6,7 +6,7 @@
 
 export type EyebrowSide = 'left' | 'right'
 
-export type MarkerType = 'pluck' | 'cut'
+export type MarkerType = 'pluck' | 'cut' | 'thin_out' | 'makeup'
 
 export interface EyebrowTreatmentMark {
   id: string

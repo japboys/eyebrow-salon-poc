@@ -77,6 +77,7 @@ export async function GET(
       id: customer.id,
       name: customer.name,
       nameKana: customer.nameKana,
+      bookingName: customer.bookingName,
       age: customer.age,
       phone: customer.phone,
       email: customer.email,
@@ -103,11 +104,12 @@ export async function PUT(
 ) {
   try {
     const body = await request.json()
-    const { name, nameKana, age, phone, email, notes, profile } = body
+    const { name, nameKana, bookingName, age, phone, email, notes, profile } = body
 
     if (
       name !== undefined ||
       nameKana !== undefined ||
+      bookingName !== undefined ||
       age !== undefined ||
       phone !== undefined ||
       email !== undefined ||
@@ -118,6 +120,7 @@ export async function PUT(
         data: {
           ...(name !== undefined && { name }),
           ...(nameKana !== undefined && { nameKana }),
+          ...(bookingName !== undefined && { bookingName }),
           ...(age !== undefined && { age }),
           ...(phone !== undefined && { phone }),
           ...(email !== undefined && { email }),
@@ -164,6 +167,7 @@ export async function PUT(
       id: updated.id,
       name: updated.name,
       nameKana: updated.nameKana,
+      bookingName: updated.bookingName,
       age: updated.age,
       phone: updated.phone,
       email: updated.email,

@@ -70,6 +70,7 @@ export async function GET() {
       id: c.id,
       name: c.name,
       nameKana: c.nameKana,
+      bookingName: c.bookingName,
       age: c.age,
       phone: c.phone,
       email: c.email,

@@ -11,6 +11,7 @@ model Customer {
   id               String          @id
   name             String
   nameKana         String?
+  bookingName      String?
   age              Int?
   phone            String?
   email            String?

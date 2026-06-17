@@ -27,13 +27,35 @@ export default function EyebrowMark({ mark }: EyebrowMarkProps) {
     )
   }
 
-  // cut: 横棒一本（長め） + 中央に縦線2本（カット範囲を示すマーク）
+  if (mark.markerType === 'cut') {
+    // cut: 横棒一本（長め） + 中央に縦線2本（カット範囲を示すマーク）
+    return (
+      <div style={wrapperStyle}>
+        <svg width="34" height="22" viewBox="0 0 34 22">
+          <line x1="4" y1="11" x2="30" y2="11" stroke="#1A1A1A" strokeWidth="3" strokeLinecap="round" />
+          <line x1="13" y1="5" x2="13" y2="17" stroke="#1A1A1A" strokeWidth="3" strokeLinecap="round" />
+          <line x1="21" y1="5" x2="21" y2="17" stroke="#1A1A1A" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      </div>
+    )
+  }
+
+  if (mark.markerType === 'thin_out') {
+    // 間引: V字（下向き）
+    return (
+      <div style={wrapperStyle}>
+        <svg width="18" height="14" viewBox="0 0 18 14">
+          <polyline points="2,2 9,12 16,2" fill="none" stroke="#1A1A1A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+    )
+  }
+
+  // makeup: 薄い色の○（メーク）
   return (
     <div style={wrapperStyle}>
-      <svg width="34" height="22" viewBox="0 0 34 22">
-        <line x1="4" y1="11" x2="30" y2="11" stroke="#1A1A1A" strokeWidth="3" strokeLinecap="round" />
-        <line x1="13" y1="5" x2="13" y2="17" stroke="#1A1A1A" strokeWidth="3" strokeLinecap="round" />
-        <line x1="21" y1="5" x2="21" y2="17" stroke="#1A1A1A" strokeWidth="3" strokeLinecap="round" />
+      <svg width="18" height="18" viewBox="0 0 18 18">
+        <circle cx="9" cy="9" r="7" fill="none" stroke="#999999" strokeWidth="2" strokeDasharray="3 2" />
       </svg>
     </div>
   )

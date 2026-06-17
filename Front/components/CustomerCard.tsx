@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Customer, VisitRecord, DesignPlan, TreatmentRecord, Appointment, Staff } from '@/Other/types'
-import CautionBadges from '@/Front/components/CautionBadges'
 import SurveyResultModal from '@/Front/components/SurveyResultModal'
 import CustomerInfoModal from '@/Front/components/CustomerInfoModal'
 
@@ -32,34 +31,38 @@ function isToday(dateStr: string | null | undefined): boolean {
     d.getDate() === today.getDate()
 }
 
-function buildVisitSummaryLine(visit: VisitRecord): string {
-  const vDesign = (visit.designPlan as DesignPlan | null)?.desiredDesign
-  const tr = visit.treatmentRecord as TreatmentRecord | null
-  const vTreatment = [...(tr?.rightBrowTreatmentTags ?? []), ...(tr?.leftBrowTreatmentTags ?? [])]
-  const parts: string[] = []
-  if (vDesign) parts.push(vDesign)
-  if (vTreatment.length) parts.push(vTreatment.slice(0, 2).join('・'))
-  return parts.join(' / ')
-}
-
 export default function CustomerCard({ customer, appointment, staffList, onAppointmentUpdate, onCustomerUpdate }: CustomerCardProps) {
   const router = useRouter()
   const [showSurvey, setShowSurvey] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
+  const [showEditAppt, setShowEditAppt] = useState(false)
+  const [editStaffId, setEditStaffId] = useState('')
+  const [editDuration, setEditDuration] = useState(40)
+  const [apptSaving, setApptSaving] = useState(false)
 
-  const handleAppointmentChange = async (patch: { staffId?: string | null; duration?: number }) => {
+  const handleOpenEditAppt = () => {
+    setEditStaffId(appointment?.staffId ?? '')
+    setEditDuration(appointment?.duration ?? 40)
+    setShowEditAppt(true)
+  }
+
+  const handleSaveEditAppt = async () => {
     if (!appointment) return
+    setApptSaving(true)
     try {
       const res = await fetch(`/api/appointments/${appointment.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
+        body: JSON.stringify({ staffId: editStaffId || null, duration: editDuration }),
       })
       if (!res.ok) return
       const updated = await res.json()
       onAppointmentUpdate?.(updated)
+      setShowEditAppt(false)
     } catch {
       // 通信エラー時は表示状態を維持
+    } finally {
+      setApptSaving(false)
     }
   }
 
@@ -68,10 +71,13 @@ export default function CustomerCard({ customer, appointment, staffList, onAppoi
   const latestVisit = allVisits[0]
   const hasTodayDraft = isToday(latestVisit?.visitDate) && latestVisit?.visitPolicy === 'draft'
   const hasTodayKarte = isToday(latestVisit?.visitDate) && latestVisit?.visitPolicy !== 'draft'
-  const displayedVisits = allVisits.filter(v => v.visitPolicy !== 'draft').slice(0, 2)
   const summaryVisit = !isNewCustomer && (hasTodayKarte
     ? allVisits.find(v => v.visitPolicy !== 'draft' && !isToday(v.visitDate)) ?? null
     : (hasTodayDraft ? allVisits.find(v => v.visitPolicy !== 'draft') ?? null : latestVisit ?? null))
+
+  const assignedStaffName = appointment?.staffId
+    ? staffList?.find(s => s.id === appointment.staffId)?.name ?? '未設定'
+    : '未設定'
 
   return (
     <>
@@ -127,73 +133,27 @@ export default function CustomerCard({ customer, appointment, staffList, onAppoi
             </div>
           </div>
 
-          {/* 予約情報: 担当スタッフ・施術時間 */}
+          {/* 予約情報: テキスト表示 + 予約編集ボタン */}
           {appointment && (
-            <div className="flex items-center gap-2 flex-wrap mb-3">
-              <span className="text-[11px] text-muted flex-shrink-0">予約:</span>
-              <select
-                value={appointment.staffId ?? ''}
-                onChange={(e) => handleAppointmentChange({ staffId: e.target.value || null })}
-                className="text-[11px] font-medium rounded-full focus:outline-none"
-                style={{ background: 'rgba(90,62,43,0.08)', color: '#5A3E2B', border: 'none', padding: '3px 10px' }}
+            <div className="flex items-center justify-between gap-2 mb-3 py-2 px-3 rounded-xl" style={{ background: 'rgba(90,62,43,0.04)', border: '1px solid #EDE5DD' }}>
+              <p className="text-[12px] text-text leading-relaxed">
+                <span className="text-muted">担当：</span>
+                <span className="font-semibold text-primary">{assignedStaffName}</span>
+                <span className="text-muted mx-2">　</span>
+                <span className="text-muted">施術時間：</span>
+                <span className="font-semibold text-primary">{appointment.duration}分</span>
+              </p>
+              <button
+                onClick={handleOpenEditAppt}
+                className="text-[11px] px-2.5 py-1 rounded-lg font-medium flex-shrink-0 transition-colors"
+                style={{ background: 'rgba(90,62,43,0.08)', border: '1px solid #DDD0C4', color: '#5A3E2B' }}
               >
-                <option value="">担当未設定</option>
-                {staffList?.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-              <select
-                value={appointment.duration}
-                onChange={(e) => handleAppointmentChange({ duration: Number(e.target.value) })}
-                className="text-[11px] font-medium rounded-full focus:outline-none"
-                style={{ background: 'rgba(90,62,43,0.08)', color: '#5A3E2B', border: 'none', padding: '3px 10px' }}
-              >
-                {DURATION_OPTIONS.map((d) => (
-                  <option key={d} value={d}>{d}分</option>
-                ))}
-              </select>
+                予約編集
+              </button>
             </div>
           )}
 
-          {/* Caution badges */}
-          <CautionBadges customer={customer} latestVisit={latestVisit} compact className="mb-3" />
-
-          {/* Past visit history */}
-          <div className="mb-3">
-            <p className="text-[11px] font-medium text-muted uppercase tracking-wide mb-2">過去カルテ</p>
-            {isNewCustomer || displayedVisits.length === 0 ? (
-              <p className="text-xs text-muted italic">過去カルテなし</p>
-            ) : (
-              <div className="space-y-1.5">
-                {displayedVisits.map((visit) => {
-                  const visitIsToday = isToday(visit.visitDate)
-                  const summaryLine = buildVisitSummaryLine(visit)
-                  return (
-                    <button
-                      key={visit.treatmentId}
-                      onClick={() => router.push(`/customers/${customer.id}/visit/${visit.treatmentId}`)}
-                      className="w-full text-left px-3 py-2.5 rounded-xl transition-colors"
-                      style={{ background: '#F8F3EE', border: '1px solid #E5D8CD' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#EDD9C8')}
-                      onMouseLeave={e => (e.currentTarget.style.background = '#F8F3EE')}
-                    >
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-xs font-semibold text-prevText">第{visit.visitNumber}回</span>
-                        <span className="text-xs text-muted">{formatDate(visit.visitDate)}</span>
-                        {visitIsToday && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                            style={{ background: 'rgba(76,139,98,0.12)', color: '#4C8B62' }}>本日</span>
-                        )}
-                      </div>
-                      {summaryLine && <p className="text-[11px] text-muted leading-tight line-clamp-1">{summaryLine}</p>}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* 前回サマリーを見る — 修正３: proper button */}
+          {/* 前回サマリーを見る */}
           {summaryVisit && (
             <button
               onClick={() => router.push(`/customers/${customer.id}`)}
@@ -212,7 +172,7 @@ export default function CustomerCard({ customer, appointment, staffList, onAppoi
             </button>
           )}
 
-          {/* 修正１・修正４: 事前アンケート + お客様情報 ボタン */}
+          {/* 事前アンケート + お客様情報 ボタン */}
           <div className="flex gap-2">
             <button
               onClick={() => setShowSurvey(true)}
@@ -286,6 +246,78 @@ export default function CustomerCard({ customer, appointment, staffList, onAppoi
           )}
         </div>
       </div>
+
+      {/* 予約編集モーダル */}
+      {showEditAppt && appointment && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          style={{ background: 'rgba(42,26,14,0.45)', backdropFilter: 'blur(4px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setShowEditAppt(false) }}
+        >
+          <div
+            className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl overflow-hidden"
+            style={{ background: '#FEFCFA', boxShadow: '0 -4px 32px rgba(90,62,43,0.18), 0 0 0 1px #E8E0D7' }}
+          >
+            <div className="flex items-center justify-between px-5 py-4"
+              style={{ background: '#F8F3EE', borderBottom: '1px solid #E8E0D7' }}>
+              <div>
+                <h2 className="font-serif font-semibold text-primary text-[16px]">予約編集</h2>
+                <p className="text-[11px] text-muted mt-0.5">{customer.name} — {appointment.time}〜</p>
+              </div>
+              <button onClick={() => setShowEditAppt(false)}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-textLight"
+                style={{ background: 'rgba(90,62,43,0.07)' }}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="block text-[11px] text-muted mb-2">担当スタッフ</label>
+                <select
+                  value={editStaffId}
+                  onChange={e => setEditStaffId(e.target.value)}
+                  className="w-full text-[14px] text-text bg-cardAlt focus:outline-none rounded-xl px-3"
+                  style={{ height: '48px', border: '1.5px solid #E8E0D7' }}
+                >
+                  <option value="">未設定</option>
+                  {staffList?.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] text-muted mb-2">施術時間</label>
+                <select
+                  value={editDuration}
+                  onChange={e => setEditDuration(Number(e.target.value))}
+                  className="w-full text-[14px] text-text bg-cardAlt focus:outline-none rounded-xl px-3"
+                  style={{ height: '48px', border: '1.5px solid #E8E0D7' }}
+                >
+                  {DURATION_OPTIONS.map(d => (
+                    <option key={d} value={d}>{d}分</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="px-5 py-4 flex gap-2.5" style={{ borderTop: '1px solid #E8E0D7' }}>
+              <button onClick={() => setShowEditAppt(false)}
+                className="flex-shrink-0 py-3 px-5 rounded-xl text-sm font-medium"
+                style={{ background: 'rgba(90,62,43,0.06)', border: '1px solid #E8E0D7', color: '#7B6A5E' }}>
+                キャンセル
+              </button>
+              <button onClick={handleSaveEditAppt} disabled={apptSaving}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-60 flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #5A3E2B 0%, #7A5540 100%)', boxShadow: '0 2px 8px rgba(90,62,43,0.22)' }}>
+                {apptSaving ? (
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />保存中...</>
+                ) : '保存する'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSurvey && (
         <SurveyResultModal customerName={customer.name} onClose={() => setShowSurvey(false)} />

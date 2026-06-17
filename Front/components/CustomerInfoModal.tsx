@@ -12,6 +12,7 @@ interface CustomerInfoModalProps {
 interface FormState {
   name: string
   nameKana: string
+  bookingName: string
   age: string
   phone: string
   email: string
@@ -21,6 +22,7 @@ function customerToForm(customer: Customer): FormState {
   return {
     name: customer.name,
     nameKana: customer.nameKana ?? '',
+    bookingName: customer.bookingName ?? '',
     age: customer.age != null ? String(customer.age) : '',
     phone: customer.phone ?? '',
     email: customer.email ?? '',
@@ -33,23 +35,28 @@ function FieldRow({
   onChange,
   type = 'text',
   placeholder,
+  suffix,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   type?: string
   placeholder?: string
+  suffix?: React.ReactNode
 }) {
   return (
     <div className="py-2.5" style={{ borderBottom: '1px solid #F0EAE4' }}>
       <label className="block text-[11px] text-muted mb-1">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full text-[14px] text-text bg-transparent focus:outline-none"
-      />
+      <div className="flex items-center gap-2">
+        <input
+          type={type}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 text-[14px] text-text bg-transparent focus:outline-none"
+        />
+        {suffix}
+      </div>
     </div>
   )
 }
@@ -63,6 +70,14 @@ export default function CustomerInfoModal({ customer, onClose, onSaved }: Custom
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
+  const swapNames = () => {
+    setForm(prev => ({
+      ...prev,
+      name: prev.bookingName || prev.name,
+      bookingName: prev.name,
+    }))
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setError(null)
@@ -73,6 +88,7 @@ export default function CustomerInfoModal({ customer, onClose, onSaved }: Custom
         body: JSON.stringify({
           name: form.name,
           nameKana: form.nameKana || null,
+          bookingName: form.bookingName || null,
           age: form.age ? Number(form.age) : null,
           phone: form.phone || null,
           email: form.email || null,
@@ -124,7 +140,26 @@ export default function CustomerInfoModal({ customer, onClose, onSaved }: Custom
 
         {/* Content */}
         <div className="px-5 py-2">
-          <FieldRow label="お名前" value={form.name} onChange={v => update('name', v)} />
+          <FieldRow label="お名前（カルテ表示名）" value={form.name} onChange={v => update('name', v)} />
+          <FieldRow
+            label="予約者名（予約サイト等での登録名）"
+            value={form.bookingName}
+            onChange={v => update('bookingName', v)}
+            placeholder="未登録"
+            suffix={
+              <button
+                type="button"
+                onClick={swapNames}
+                className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                style={{ background: 'rgba(90,62,43,0.07)', color: '#7B6A5E' }}
+                title="お名前と予約者名を入れ替え"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+              </button>
+            }
+          />
           <FieldRow label="フリガナ" value={form.nameKana} onChange={v => update('nameKana', v)} />
           <FieldRow label="年齢" value={form.age} onChange={v => update('age', v.replace(/[^0-9]/g, ''))} type="number" placeholder="未登録" />
           <FieldRow label="電話番号" value={form.phone} onChange={v => update('phone', v)} type="tel" placeholder="未登録" />

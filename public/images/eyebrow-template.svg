@@ -2,21 +2,21 @@
   <rect x="0" y="0" width="400" height="180" fill="#FFFFFF" />
 
   <!-- 顔の中心軸（左右眉の境界） -->
-  <line x1="200" y1="10" x2="200" y2="170" stroke="#E8E0D7" stroke-width="2" stroke-dasharray="6 6" />
+  <line x1="200" y1="10" x2="200" y2="170" stroke="#F0EAE4" stroke-width="1.5" stroke-dasharray="6 6" />
 
   <!-- 右眉（向かって右側） -->
   <path
     d="M 230,106 C 240,84 272,62 304,64 C 336,66 356,84 368,98 C 360,104 338,96 314,94 C 288,92 254,98 230,106 Z"
-    fill="#EDE2D6"
-    stroke="#C9B29C"
-    stroke-width="2"
+    fill="#F5EFE9"
+    stroke="#DDD0C4"
+    stroke-width="1.5"
   />
 
   <!-- 左眉（向かって左側、右眉を左右反転） -->
   <path
     d="M 170,106 C 160,84 128,62 96,64 C 64,66 44,84 32,98 C 40,104 62,96 86,94 C 112,92 146,98 170,106 Z"
-    fill="#EDE2D6"
-    stroke="#C9B29C"
-    stroke-width="2"
+    fill="#F5EFE9"
+    stroke="#DDD0C4"
+    stroke-width="1.5"
   />
 </svg>

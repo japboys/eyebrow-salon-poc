@@ -5,6 +5,7 @@ export interface Customer {
   id: string
   name: string
   nameKana: string | null
+  bookingName: string | null
   age: number | null
   phone: string | null
   email: string | null
@@ -70,11 +71,18 @@ export interface VisitRecord {
 }
 
 export interface DesignPlan {
-  desiredDesign: string
+  desiredDesign: string | string[]
   designSubOption?: string
+  designSubOptions?: Record<string, string>
   thickness: string
   density: string
   designMemo?: string
+  customerStance?: string
+  particularNote?: string
+  permaEnabled?: boolean
+  permaMedication?: string
+  permaTime?: string
+  permaCustomTime?: number
 }
 
 export type SkinRiskLevel = 'ok' | 'caution' | 'medication'
@@ -94,11 +102,13 @@ export interface TreatmentRecord {
   particularNote?: string
   treatmentNote: string
   eyebrowTreatmentMarks?: EyebrowTreatmentMark[]
+  eyebrowMarkMemo?: string
 }
 
 export interface Handover {
   handoverText: string
   staffEditNote: string
+  staffEditNoteImportant?: boolean
   aiGeneratedPlaceholderText?: string
   skinCautionTags?: string[]
   nextImprovementTags?: string[]
